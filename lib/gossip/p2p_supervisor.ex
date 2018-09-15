@@ -14,7 +14,7 @@ defmodule Gossip.P2PSupervisor do
     end
     IO.inspect child_pids
     create_topology(topology, child_pids)
-    #send_rumor(child_pids, {:fact, "The answer to the question is 42"})
+    send_rumor(child_pids, {:fact, "The answer to the question is 42"})
   end
 
   def send_rumor(child_pids, {:fact, fact}) do

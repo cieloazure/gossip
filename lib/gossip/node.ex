@@ -23,4 +23,10 @@ defmodule Gossip.Node do
     new_neighbours = if !is_map(new_neighbours), do: MapSet.new(new_neighbours), else: new_neighbours
     {:noreply, MapSet.union(neighbours,new_neighbours)}
   end
+
+  @impl true
+  def handle_info({:fact, fact}, neighbours) do
+    IO.inspect "Got a fact! Use logic to update the count of fact"
+    {:noreply, neighbours}
+  end
 end
