@@ -9,6 +9,15 @@ defmodule Gossip.Node do
     GenServer.cast(pid, {:add_new_neighbours, new_neighbours})
   end
 
+  def add_new_neighbour(pid, new_neighbour) do
+    new_neighbour = MapSet.new([new_neighbour])
+    GenServer.cast(pid, {:add_new_neighbours, new_neighbour})
+  end
+
+  def get_neighbours(pid) do
+    GenServer.call(pid, {:get_neighbours})
+  end
+
   # Server (callbacks)
 
   @impl true
@@ -19,14 +28,19 @@ defmodule Gossip.Node do
 
   @impl true
   def handle_cast({:add_new_neighbours, new_neighbours}, neighbours) do
-    IO.inspect new_neighbours
-    new_neighbours = if !is_map(new_neighbours), do: MapSet.new(new_neighbours), else: new_neighbours
-    {:noreply, MapSet.union(neighbours,new_neighbours)}
+    new_neighbours =
+      if !is_map(new_neighbours), do: MapSet.new(new_neighbours), else: new_neighbours
+
+    {:noreply, MapSet.union(neighbours, new_neighbours)}
   end
 
   @impl true
-  def handle_info({:fact, fact}, neighbours) do
-    IO.inspect "Got a fact! Use logic to update the count of fact"
+  def handle_info({:fact, _fact}, neighbours) do
     {:noreply, neighbours}
+  end
+
+  @impl true
+  def handle_call({:get_neighbours}, _from, neighbours) do
+    {:reply, neighbours, neighbours}
   end
 end
