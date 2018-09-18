@@ -73,8 +73,19 @@ defmodule Gossip.P2PSupervisor do
     Logger.info("creating 3d network...")
   end
 
-  defp create_rand_2d_network(_child_pids) do
+  defp create_rand_2d_network(child_pids) do
+    # TODO: find out whether x and y coordinates are to be save in node
+    # This will change the implementation of node
+    # x and y coordinates will be unused for other topologies
+    # Also, a z coordinate might be needed if it is in  3 dimentional
     Logger.info("creating rand 2d network...")
+    actor_grid = Enum.map(child_pids, fn child_pid -> {child_pid, :rand.uniform_real, :rand.uniform_real} end)
+    for {pid1, x1, y1} <- actor_grid,
+      {pid2, x2, y2} <- MapSet.to_list(MapSet.difference(MapSet.new(actor_grid),MapSet.new([{pid1, x1, y1}]))) do
+        if distance(x1, y1, x2, y2) <= 0.1 do
+          Gossip.Node.add_new_neighbour(pid1, pid2)
+        end
+      end
   end
 
   defp create_torrus_network(_child_pids) do
@@ -94,5 +105,9 @@ defmodule Gossip.P2PSupervisor do
   defp raise_invalid_topology_error(_child_pids) do
     Logger.info("raising invalid topology error.....")
     raise ArgumentError, "topology(argument 3) is invalid"
+  end
+
+  defp distance(x1, y1, x2, y2) do
+    :math.sqrt(:math.pow(x2 - x1, 2) + :math.pow(y2 - y1, 2))
   end
 end

@@ -1,7 +1,7 @@
 defmodule Gossip.P2PSupervisorTest do
   use ExUnit.Case
 
-  describe "start_children" do
+  describe "start_children:" do
     test "starts num_nodes of children" do
       {:ok, child_pids} = Gossip.P2PSupervisor.start_children(Gossip.P2PSupervisor, 5)
       assert length(child_pids) == 5
@@ -24,10 +24,8 @@ defmodule Gossip.P2PSupervisorTest do
     end
   end
 
-  @tag :pending
-  test "sends rumor to a random child"
 
-  describe "creating topology" do
+  describe "create_topology:" do
     test "creates a full network when no topology argument is passed" do
       {:ok, child_pids} = Gossip.P2PSupervisor.start_children(Gossip.P2PSupervisor, 5)
 
@@ -73,14 +71,22 @@ defmodule Gossip.P2PSupervisorTest do
         assert middle_actor_size == 2 or middle_actor_size == 3
       end)
     end
+
+    test "creates a random 2d network" do
+      {:ok, child_pids} = Gossip.P2PSupervisor.start_children(Gossip.P2PSupervisor, 50, "rand2D")
+       neighbour_sizes = Enum.map(child_pids, fn child_pid ->
+        MapSet.size(Gossip.Node.get_neighbours(child_pid))
+      end) 
+      assert Enum.any?(neighbour_sizes, fn size -> size >= 1 end)
+    end
   end
 
   @tag :pending
   test "creates a 3d network"
 
   @tag :pending
-  test "creates a random 2d network"
+  test "creates a torrus network"
 
   @tag :pending
-  test "creates a torrus network"
+  test "sends rumor to a random child"
 end
