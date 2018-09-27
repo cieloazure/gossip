@@ -81,10 +81,20 @@ defmodule Gossip.P2PSupervisorTest do
 
       assert Enum.any?(neighbour_sizes, fn size -> size >= 1 end)
     end
+
+    test "creates a 3d network" do
+      {:ok, child_pids} = Gossip.P2PSupervisor.start_children(Gossip.P2PSupervisor, 50, "3D")
+
+      neighbour_sizes =
+        Enum.map(child_pids, fn child_pid ->
+          MapSet.size(Gossip.Node.get_neighbours(child_pid))
+        end)
+
+      assert Enum.any?(neighbour_sizes, fn size -> size >= 1 end)
+    end
   end
 
   @tag :pending
-  test "creates a 3d network"
 
   @tag :pending
   test "creates a torrus network"
