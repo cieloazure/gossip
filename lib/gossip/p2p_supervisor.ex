@@ -74,18 +74,26 @@ defmodule Gossip.P2PSupervisor do
   end
 
   defp create_rand_2d_network(child_pids) do
-    # TODO: find out whether x and y coordinates are to be save in node
-    # This will change the implementation of node
-    # x and y coordinates will be unused for other topologies
-    # Also, a z coordinate might be needed if it is in  3 dimentional
+    # TODO: create_grid_slots based on number of child_pids
+    # Currently, the rand2D grid will support 16 * 16 nodes = 256 nodes
+    # Value of grid slots are hard coded, which need to be dynamic 
     Logger.info("creating rand 2d network...")
-    actor_grid = Enum.map(child_pids, fn child_pid -> {child_pid, :rand.uniform_real, :rand.uniform_real} end)
+    grid_slots = create_grid_slots()
+
+    actor_grid =
+      Enum.map(child_pids, fn child_pid ->
+        {node, _list} = List.pop_at(grid_slots, :rand.uniform(length(child_pids)) - 1)
+        {x, y} = node
+        {child_pid, x, y}
+      end)
+
     for {pid1, x1, y1} <- actor_grid,
-      {pid2, x2, y2} <- MapSet.to_list(MapSet.difference(MapSet.new(actor_grid),MapSet.new([{pid1, x1, y1}]))) do
-        if distance(x1, y1, x2, y2) <= 0.1 do
-          Gossip.Node.add_new_neighbour(pid1, pid2)
-        end
+        {pid2, x2, y2} <-
+          MapSet.to_list(MapSet.difference(MapSet.new(actor_grid), MapSet.new([{pid1, x1, y1}]))) do
+      if grid_neighbour?(x1, y1, x2, y2) do
+        Gossip.Node.add_new_neighbour(pid1, pid2)
       end
+    end
   end
 
   defp create_torrus_network(_child_pids) do
@@ -107,7 +115,40 @@ defmodule Gossip.P2PSupervisor do
     raise ArgumentError, "topology(argument 3) is invalid"
   end
 
-  defp distance(x1, y1, x2, y2) do
-    :math.sqrt(:math.pow(x2 - x1, 2) + :math.pow(y2 - y1, 2))
+  defp create_grid_slots do
+    grid_values = get_grid_values()
+    List.flatten(Enum.map(grid_values, fn x -> Enum.map(grid_values, fn y -> {x, y} end) end))
+  end
+
+  defp get_grid_values do
+    Enum.map(0..20, fn x -> x / 10 end)
+    |> Enum.map(fn x -> x / 2 end)
+  end
+
+  defp grid_neighbour?(x1, y1, x2, y2) do
+    {a, b} =
+      cond do
+        x1 != x2 and y1 != y2 ->
+          {nil, nil}
+
+        x1 == x2 and y1 == y2 ->
+          {nil, nil}
+
+        x1 == x2 ->
+          {y1, y2}
+
+        y1 == y2 ->
+          {x1, x2}
+      end
+
+    if a != nil and b != nil do
+      if min(a, b) + 0.1 >= max(a, b) do
+        true
+      else
+        false
+      end
+    else
+      false
+    end
   end
 end

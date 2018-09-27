@@ -24,7 +24,6 @@ defmodule Gossip.P2PSupervisorTest do
     end
   end
 
-
   describe "create_topology:" do
     test "creates a full network when no topology argument is passed" do
       {:ok, child_pids} = Gossip.P2PSupervisor.start_children(Gossip.P2PSupervisor, 5)
@@ -74,9 +73,12 @@ defmodule Gossip.P2PSupervisorTest do
 
     test "creates a random 2d network" do
       {:ok, child_pids} = Gossip.P2PSupervisor.start_children(Gossip.P2PSupervisor, 50, "rand2D")
-       neighbour_sizes = Enum.map(child_pids, fn child_pid ->
-        MapSet.size(Gossip.Node.get_neighbours(child_pid))
-      end) 
+
+      neighbour_sizes =
+        Enum.map(child_pids, fn child_pid ->
+          MapSet.size(Gossip.Node.get_neighbours(child_pid))
+        end)
+
       assert Enum.any?(neighbour_sizes, fn size -> size >= 1 end)
     end
   end
