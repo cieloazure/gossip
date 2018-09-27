@@ -73,8 +73,27 @@ defmodule Gossip.P2PSupervisor do
     Logger.info("creating 3d network...")
   end
 
-  defp create_rand_2d_network(_child_pids) do
+  defp create_rand_2d_network(child_pids) do
+    # TODO: create_grid_slots based on number of child_pids
+    # Currently, the rand2D grid will support 16 * 16 nodes = 256 nodes
+    # Value of grid slots are hard coded, which need to be dynamic 
     Logger.info("creating rand 2d network...")
+    grid_slots = create_grid_slots()
+
+    actor_grid =
+      Enum.map(child_pids, fn child_pid ->
+        {node, _list} = List.pop_at(grid_slots, :rand.uniform(length(child_pids)) - 1)
+        {x, y} = node
+        {child_pid, x, y}
+      end)
+
+    for {pid1, x1, y1} <- actor_grid,
+        {pid2, x2, y2} <-
+          MapSet.to_list(MapSet.difference(MapSet.new(actor_grid), MapSet.new([{pid1, x1, y1}]))) do
+      if grid_neighbour?(x1, y1, x2, y2) do
+        Gossip.Node.add_new_neighbour(pid1, pid2)
+      end
+    end
   end
 
   defp create_torrus_network(_child_pids) do
@@ -94,5 +113,42 @@ defmodule Gossip.P2PSupervisor do
   defp raise_invalid_topology_error(_child_pids) do
     Logger.info("raising invalid topology error.....")
     raise ArgumentError, "topology(argument 3) is invalid"
+  end
+
+  defp create_grid_slots do
+    grid_values = get_grid_values()
+    List.flatten(Enum.map(grid_values, fn x -> Enum.map(grid_values, fn y -> {x, y} end) end))
+  end
+
+  defp get_grid_values do
+    Enum.map(0..20, fn x -> x / 10 end)
+    |> Enum.map(fn x -> x / 2 end)
+  end
+
+  defp grid_neighbour?(x1, y1, x2, y2) do
+    {a, b} =
+      cond do
+        x1 != x2 and y1 != y2 ->
+          {nil, nil}
+
+        x1 == x2 and y1 == y2 ->
+          {nil, nil}
+
+        x1 == x2 ->
+          {y1, y2}
+
+        y1 == y2 ->
+          {x1, x2}
+      end
+
+    if a != nil and b != nil do
+      if min(a, b) + 0.1 >= max(a, b) do
+        true
+      else
+        false
+      end
+    else
+      false
+    end
   end
 end

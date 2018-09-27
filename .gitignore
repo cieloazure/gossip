@@ -28,3 +28,6 @@ mix.lock
 # Ignore swap files
 *.swo
 *.swp
+
+# Ignore scratchpad
+scratchpad.exs
