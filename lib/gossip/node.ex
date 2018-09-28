@@ -27,63 +27,95 @@ defmodule Gossip.Node do
 
   @impl true
   def init(opts) do
-    s = Enum.at(opts, 0)
-    w = 1
+    sum = Enum.at(opts, 0)
+    weight = 1
     fact = ""
-    listen_counter = 0
+    receipt_counter = 0
     counter = 0
     neighbours = MapSet.new([])
-    {:ok, {neighbours, fact, listen_counter, counter, s}}
+    {:ok, {neighbours, fact, receipt_counter, counter, sum, weight}}
   end
 
   @impl true
-  def handle_cast({:add_new_neighbours, new_neighbours}, {neighbours, fact, listen_counter, _counter, s}) do
+  def handle_cast({:add_new_neighbours, new_neighbours}, {neighbours, fact, receipt_counter, _counter, sum, weight}) do
     new_neighbours = if !is_map(new_neighbours), do: MapSet.new(new_neighbours), else: new_neighbours
-    {:noreply, {MapSet.union(neighbours,new_neighbours), fact, listen_counter, MapSet.size(MapSet.union(neighbours,new_neighbours)), s}}
+    # {:noreply, {MapSet.union(neighbours,new_neighbours), fact, receipt_counter, MapSet.size(MapSet.union(neighbours,new_neighbours)), sum, weight}}
+    {:noreply, {MapSet.union(neighbours,new_neighbours), fact, receipt_counter, sum, sum, weight}}
+  end
+
+  # @impl true
+  # def handle_info({:fact, fact}, {neighbours, _fact, receipt_counter, counter, sum, weight}) do
+  #   receipt_counter = receipt_counter + 1
+  #   if receipt_counter == @counter_limit do
+  #     IO.puts "#{sum} sending status"
+  #     send_status(neighbours)
+  #   end
+
+  #   # if receipt_counter == 1, do: Process.spawn(fn -> send(Enum.random(neighbours), {:fact, fact}) end, [:monitor])
+
+  #   if receipt_counter == 1  do
+  #     Process.spawn(fn -> send(Enum.random(neighbours), {:fact, fact}) end, [:monitor])
+  #   end
+  #   {:noreply, {neighbours, fact, receipt_counter, counter, sum, weight}}
+  # end
+
+  @impl true
+  def handle_info({:pushsum}, {neighbours, fact, receipt_counter, counter, sum, weight}) do
+    IO.puts "#{counter} sum estimate= #{sum/weight}"
+    send(Enum.random(neighbours), {:pushsum, {sum/2, weight/2}})
+    {:noreply, {neighbours, fact, receipt_counter, counter, sum/2, weight/2}}
   end
 
   @impl true
-  def handle_info({:fact, fact}, {neighbours, _fact, listen_counter, counter, s}) do
-    listen_counter = listen_counter + 1
-    if listen_counter == @counter_limit do
-      IO.puts "#{s} sending status"
-      send_status(neighbours)
+  def handle_info({:pushsum, {s, w}}, {neighbours, fact, receipt_counter, counter, sum, weight}) do
+    IO.puts "puts with params------------------------"
+    new_sum = sum + s
+    new_weight = weight + w
+    sum_estimate_delta = new_sum/new_weight - sum/weight
+    
+    receipt_counter = if sum_estimate_delta <= :math.pow(10, -10) do
+      receipt_counter + 1
+    else
+      receipt_counter
+    end
+    
+    {new_sum, new_weight} = if receipt_counter < 3 do
+      send(Enum.random(neighbours), {:pushsum, {new_sum/2, new_weight/2}})
+      {new_sum/2, new_weight/2}
+    else
+      {new_sum, new_weight}
     end
 
-    # if listen_counter == 1, do: Process.spawn(fn -> send(Enum.random(neighbours), {:fact, fact}) end, [:monitor])
-
-    if listen_counter == 1  do
-      Process.spawn(fn -> send(Enum.random(neighbours), {:fact, fact}) end, [:monitor])
-    end
-    {:noreply, {neighbours, fact, listen_counter, counter, s}}
+    IO.puts "#{counter} new sum estimate= #{new_sum/new_weight}"
+    {:noreply, {neighbours, fact, receipt_counter, counter, new_sum, new_weight}}
   end
 
-  @impl true
-  def handle_info({:DOWN, _ref, :process, _object, _reason}, {neighbours, fact, listen_counter, counter, s}) do
-    if listen_counter <= @counter_limit or counter != 0 do
-      IO.puts "#{s} down spawing"
+  # @impl true
+  # def handle_info({:DOWN, _ref, :process, _object, _reason}, {neighbours, fact, receipt_counter, counter, sum, weight}) do
+  #   if receipt_counter <= @counter_limit or counter != 0 do
+  #     IO.puts "#{sum} down spawing"
 
-      Process.spawn(fn -> send(Enum.random(neighbours), {:fact, fact}) end, [:monitor])
-    end
-    {:noreply, {neighbours, fact, listen_counter, counter, s}}
-  end
+  #     Process.spawn(fn -> send(Enum.random(neighbours), {:fact, fact}) end, [:monitor])
+  #   end
+  #   {:noreply, {neighbours, fact, receipt_counter, counter, sum, weight}}
+  # end
 
-  @impl true
-  def handle_call({:get_neighbours}, _from, {neighbours, _fact, _listen_counter, _counter, _s}) do
-    {:reply, neighbours, {_neighbours, _fact, listen_counter, counter, s}}
-  end
+  # @impl true
+  # def handle_call({:get_neighbours}, _from, {neighbours, _fact, _receipt_counter, _counter, _s, _w}) do
+  #   {:reply, neighbours, {neighbours, _fact, _receipt_counter, _counter, _s, _w}}
+  # end
 
-  @impl true
-  def handle_info({:status, _status}, {_neighbours, _fact, listen_counter, counter, s}) do
-    counter = counter - 1
-    IO.puts "#{s} status #{counter}"
-    if counter == 0, do: listen_counter = 11
+  # @impl true
+  # def handle_info({:status, _status}, {_neighbours, _fact, receipt_counter, counter, sum, weight}) do
+  #   counter = counter - 1
+  #   IO.puts "#{sum} status #{counter}"
+  #   if counter == 0, do: receipt_counter = 11
 
-    {:noreply, {_neighbours, _fact, listen_counter, counter, s}}
-  end
+  #   {:noreply, {_neighbours, _fact, receipt_counter, counter, sum, weight}}
+  # end
 
-  # Private Functions
-  defp send_status(neighbours) do
-    Enum.map(neighbours, fn neighbour -> send(neighbour, {:status, @status}) end)
-  end
+  # # Private Functions
+  # defp send_status(neighbours) do
+  #   Enum.map(neighbours, fn neighbour -> send(neighbour, {:status, @status}) end)
+  # end
 end

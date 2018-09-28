@@ -7,7 +7,7 @@ defmodule Gossip.P2PSupervisor do
     DynamicSupervisor.start_link(__MODULE__, arg, name: Gossip.P2PSupervisor)
   end
 
-  def start_children(supervisor, num_nodes, topology \\ "full") do
+  def start_children(supervisor, num_nodes, topology \\ "full", algorithm \\ "gossip") do
     Logger.info("Starting children genserver....")
 
     if num_nodes <= 0,
@@ -20,7 +20,8 @@ defmodule Gossip.P2PSupervisor do
       end
 
     create_topology(topology, child_pids)
-    send_fact(child_pids, {:fact, "The answer to the question is 42"})
+    initiate_algorithm(algorithm, child_pids)
+    # send_fact(child_pids, {:fact, "The answer to the question is 42"})
     {:ok, child_pids}
   end
 
@@ -47,6 +48,14 @@ defmodule Gossip.P2PSupervisor do
       "line" -> create_line_network(child_pids)
       "imp2D" -> create_imperfect_line_2d_network(child_pids)
       _ -> raise_invalid_topology_error(child_pids)
+    end
+  end
+
+  defp initiate_algorithm(algorithm, child_pids) do
+    case algorithm do
+      "gossip" -> send_fact(child_pids, {:fact, "The answer to the question is 42"})
+      "pushsum" -> send(Enum.random(child_pids), {:pushsum})
+      _ -> raise_invalid_algorithm_error()
     end
   end
 
@@ -114,7 +123,12 @@ defmodule Gossip.P2PSupervisor do
     Logger.info("raising invalid topology error.....")
     raise ArgumentError, "topology(argument 3) is invalid"
   end
-  
+
+  defp raise_invalid_algorithm_error() do
+    Logger.info("raising invalid algorithm error.....")
+    raise ArgumentError, "algorithm(argument 4) is invalid"
+  end
+
   defp create_grid_slots do
     grid_values = get_grid_values()
     List.flatten(Enum.map(grid_values, fn x -> Enum.map(grid_values, fn y -> {x, y} end) end))
