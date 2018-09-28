@@ -1,4 +1,4 @@
-defmodule Gossip.P2PSupervisor do
+defmodule Gossip.P2PSupervisor do 
   use DynamicSupervisor
   require Logger
 
@@ -14,8 +14,8 @@ defmodule Gossip.P2PSupervisor do
       do: raise(ArgumentError, message: "num_nodes(argument 2) should be greater than 0")
 
     child_pids =
-      for _n <- 1..num_nodes do
-        {:ok, child_pid} = DynamicSupervisor.start_child(supervisor, Gossip.Node)
+      for n <- 1..num_nodes do 
+        {:ok, child_pid} = DynamicSupervisor.start_child(supervisor, {Gossip.Node, [n]})
         child_pid
       end
 
@@ -53,7 +53,7 @@ defmodule Gossip.P2PSupervisor do
   defp create_full_network(child_pids) do
     Logger.info("creating full network...")
 
-    Enum.each(child_pids, fn child_pid ->
+    Enum.each(child_pids, fn child_pid -> 
       new_neighbours = MapSet.difference(MapSet.new(child_pids), MapSet.new([child_pid]))
       Gossip.Node.add_new_neighbours(child_pid, new_neighbours)
     end)
@@ -114,7 +114,7 @@ defmodule Gossip.P2PSupervisor do
     Logger.info("raising invalid topology error.....")
     raise ArgumentError, "topology(argument 3) is invalid"
   end
-
+  
   defp create_grid_slots do
     grid_values = get_grid_values()
     List.flatten(Enum.map(grid_values, fn x -> Enum.map(grid_values, fn y -> {x, y} end) end))
