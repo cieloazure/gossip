@@ -1,18 +1,7 @@
 defmodule Gossip do
-  @moduledoc """
-  Documentation for Gossip.
-  """
+  use Application
 
-  @doc """
-  Hello world.
-
-  ## Examples
-
-      iex> Gossip.hello()
-      :world
-
-  """
-  def hello do
-    :world
+  def start(_type, _args) do
+    Gossip.P2PSupervisor.start_link([])
   end
 end
