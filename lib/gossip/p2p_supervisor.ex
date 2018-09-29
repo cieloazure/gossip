@@ -74,11 +74,8 @@ defmodule Gossip.P2PSupervisor do
   end
 
   defp create_rand_2d_network(child_pids) do
-    # TODO: create_grid_slots based on number of child_pids
-    # Currently, the rand2D grid will support 16 * 16 nodes = 256 nodes
-    # Value of grid slots are hard coded, which need to be dynamic 
     Logger.info("creating rand 2d network...")
-    grid_slots = create_grid_slots()
+    grid_slots = create_2d_grid_slots(length(child_pids))
 
     actor_grid =
       Enum.map(child_pids, fn child_pid ->
@@ -115,14 +112,41 @@ defmodule Gossip.P2PSupervisor do
     raise ArgumentError, "topology(argument 3) is invalid"
   end
 
-  defp create_grid_slots do
-    grid_values = get_grid_values()
+  defp create_2d_grid_slots(num_nodes) do
+    grid_values = get_grid_values(num_nodes)
     List.flatten(Enum.map(grid_values, fn x -> Enum.map(grid_values, fn y -> {x, y} end) end))
   end
 
-  defp get_grid_values do
-    Enum.map(0..20, fn x -> x / 10 end)
-    |> Enum.map(fn x -> x / 2 end)
+  defp get_grid_values(num_nodes) do
+    step =
+      if num_nodes > 100 do
+        Float.round(1 / (round(:math.ceil(:math.sqrt(num_nodes))) - 1), 3)
+      else
+        0.1
+      end
+
+    generate_values(0, step)
+  end
+
+  def generate_values(x, step, l \\ [])
+
+  def generate_values(x, _step, l) when x == 1 do
+    Enum.dedup(l) |> Enum.reverse()
+  end
+
+  def generate_values(x, step, l) when x < 1 do
+    l = [x | l]
+    x = Float.round(x / 1 + step / 1, 2)
+
+    x =
+      if x > 1 do
+        :math.floor(x)
+      else
+        x
+      end
+
+    l = [x | l]
+    generate_values(x, step, l)
   end
 
   defp grid_neighbour?(x1, y1, x2, y2) do
