@@ -14,6 +14,15 @@ defmodule Gossip.Node do
     GenServer.cast(pid, {:add_new_neighbours, new_neighbour})
   end
 
+  def add_new_neighbours_dual(pid, new_neighbours) do
+
+    IO.puts "#################new_neighbours"
+    IO.inspect(new_neighbours)
+    add_new_neighbours(pid, new_neighbours)
+    # GenServer.cast(pid, {:add_new_neighbours, new_neighbours})
+    Enum.each(new_neighbours, fn new_neighbour -> add_new_neighbour(new_neighbour, pid) end)
+  end
+
   def get_neighbours(pid) do
     GenServer.call(pid, {:get_neighbours})
   end
