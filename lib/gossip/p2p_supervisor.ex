@@ -72,21 +72,12 @@ defmodule Gossip.P2PSupervisor do
   defp create_3d_network(child_pids) do
     Logger.info("creating 3d network...")
     grid_slots = create_3d_grid_slots(length(child_pids))
-    IO.inspect(length(grid_slots))
+    actor_grid = Enum.zip(child_pids, Enum.take_random(grid_slots, length(child_pids)))
 
-    actor_grid =
-      Enum.map(child_pids, fn child_pid ->
-        {node, _list} = List.pop_at(grid_slots, :rand.uniform(length(child_pids)) - 1)
-        {x, y, z} = node
-        {child_pid, x, y, z}
-      end)
-
-    IO.inspect(actor_grid)
-
-    for {pid1, x1, y1, z1} <- actor_grid,
-        {pid2, x2, y2, z2} <-
+    for {pid1, {x1, y1, z1}} <- actor_grid,
+        {pid2, {x2, y2, z2}} <-
           MapSet.to_list(
-            MapSet.difference(MapSet.new(actor_grid), MapSet.new([{pid1, x1, y1, z1}]))
+            MapSet.difference(MapSet.new(actor_grid), MapSet.new([{pid1, {x1, y1, z1}}]))
           ) do
       if grid_3d_neighbour?(x1, y1, z1, x2, y2, z2) do
         Gossip.Node.add_new_neighbour(pid1, pid2)
@@ -176,11 +167,18 @@ defmodule Gossip.P2PSupervisor do
   defp create_3d_grid_slots(num_nodes) do
     # Considering a cube grid 
     # Hence num_nodes ^ (1/3)
-    size = round(:math.ceil(:math.pow(num_nodes, 1 / 3)))
+    size =
+      if num_nodes > 8 do
+        round(:math.ceil(:math.pow(num_nodes, 1 / 3))) - 1
+      else
+        1
+      end
 
     List.flatten(
       Enum.map(0..size, fn x ->
-        Enum.map(0..size, fn y -> Enum.map(0..size, fn z -> {x, y, z} end) end)
+        Enum.map(0..size, fn y ->
+          Enum.map(0..size, fn z -> {x, y, z} end)
+        end)
       end)
     )
   end
