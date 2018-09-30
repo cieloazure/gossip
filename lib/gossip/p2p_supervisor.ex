@@ -78,8 +78,20 @@ defmodule Gossip.P2PSupervisor do
     end)
   end
 
-  defp create_3d_network(_child_pids) do
+  defp create_3d_network(child_pids) do
     Logger.info("creating 3d network...")
+    grid_slots = create_3d_grid_slots(length(child_pids))
+    actor_grid = Enum.zip(child_pids, Enum.take_random(grid_slots, length(child_pids)))
+
+    for {pid1, {x1, y1, z1}} <- actor_grid,
+        {pid2, {x2, y2, z2}} <-
+          MapSet.to_list(
+            MapSet.difference(MapSet.new(actor_grid), MapSet.new([{pid1, {x1, y1, z1}}]))
+          ) do
+      if grid_3d_neighbour?(x1, y1, z1, x2, y2, z2) do
+        Gossip.Node.add_new_neighbour(pid1, pid2)
+      end
+    end
   end
 
   defp create_rand_2d_network(child_pids) do
@@ -196,6 +208,55 @@ defmodule Gossip.P2PSupervisor do
 
     if a != nil and b != nil do
       if min(a, b) + 0.1 >= max(a, b) do
+        true
+      else
+        false
+      end
+    else
+      false
+    end
+  end
+
+  defp create_3d_grid_slots(num_nodes) do
+    # Considering a cuboid grid 
+    a = round(:math.pow(num_nodes, 1 / 3))
+    b = round(:math.sqrt(num_nodes / a))
+    c = round(:math.ceil(num_nodes / (a * b)))
+
+    # size =
+    # if num_nodes > 8 do
+    # round(:math.ceil(:math.pow(num_nodes, 1 / 3))) - 1
+    # else
+    # 1
+    # end
+
+    List.flatten(
+      Enum.map(0..(a - 1), fn x ->
+        Enum.map(0..(b - 1), fn y ->
+          Enum.map(0..(c - 1), fn z -> {x, y, z} end)
+        end)
+      end)
+    )
+  end
+
+  defp grid_3d_neighbour?(x1, y1, z1, x2, y2, z2) do
+    {a, b} =
+      cond do
+        x1 == x2 and y1 == y2 ->
+          {z1, z2}
+
+        x1 == x2 and z1 == z2 ->
+          {y1, y2}
+
+        y1 == y2 and z1 == z2 ->
+          {x1, x2}
+
+        true ->
+          {nil, nil}
+      end
+
+    if a != nil and b != nil do
+      if min(a, b) + 1 >= max(a, b) do
         true
       else
         false
