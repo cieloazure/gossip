@@ -81,7 +81,7 @@ defmodule Gossip.P2PSupervisorTest do
 
       assert Enum.any?(neighbour_sizes, fn size -> size >= 1 end)
     end
-
+    
     test "creates a random 2d network > 100 nodes" do
       {:ok, child_pids} = Gossip.P2PSupervisor.start_children(Gossip.P2PSupervisor, 225, "rand2D")
 
@@ -92,10 +92,51 @@ defmodule Gossip.P2PSupervisorTest do
 
       assert Enum.any?(neighbour_sizes, fn size -> size >= 1 end)
     end
-  end
 
-  @tag :pending
-  test "creates a 3d network"
+    test "creates a full 3d network when there are 8 nodes" do
+      {:ok, child_pids} = Gossip.P2PSupervisor.start_children(Gossip.P2PSupervisor, 8, "3D")
+
+      neighbour_sizes =
+        Enum.map(child_pids, fn child_pid ->
+          MapSet.size(Gossip.Node.get_neighbours(child_pid))
+        end)
+
+      assert Enum.all?(neighbour_sizes, fn size -> size == 3 end)
+    end
+
+    test "creates a full 3d network when there are 4 nodes" do
+      {:ok, child_pids} = Gossip.P2PSupervisor.start_children(Gossip.P2PSupervisor, 4, "3D")
+
+      neighbour_sizes =
+        Enum.map(child_pids, fn child_pid ->
+          MapSet.size(Gossip.Node.get_neighbours(child_pid))
+        end)
+
+      assert Enum.all?(neighbour_sizes, fn size -> size != 0 end)
+    end
+
+    test "creates a full 3d network when there are 400 nodes" do
+      {:ok, child_pids} = Gossip.P2PSupervisor.start_children(Gossip.P2PSupervisor, 400, "3D")
+
+      neighbour_sizes =
+        Enum.map(child_pids, fn child_pid ->
+          MapSet.size(Gossip.Node.get_neighbours(child_pid))
+        end)
+
+      assert Enum.all?(neighbour_sizes, fn size -> size != 0 end)
+    end
+
+    test "creates a full 3d network when there are 1000 nodes" do
+      {:ok, child_pids} = Gossip.P2PSupervisor.start_children(Gossip.P2PSupervisor, 1000, "3D")
+
+      neighbour_sizes =
+        Enum.map(child_pids, fn child_pid ->
+          MapSet.size(Gossip.Node.get_neighbours(child_pid))
+        end)
+
+      assert Enum.all?(neighbour_sizes, fn size -> size != 0 end)
+    end
+  end
 
   @tag :pending
   test "creates a torrus network"
