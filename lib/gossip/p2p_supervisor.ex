@@ -1,4 +1,4 @@
-defmodule Gossip.P2PSupervisor do
+defmodule Gossip.P2PSupervisor do 
   use DynamicSupervisor
   require Logger
 
@@ -7,20 +7,21 @@ defmodule Gossip.P2PSupervisor do
     DynamicSupervisor.start_link(__MODULE__, arg, name: Gossip.P2PSupervisor)
   end
 
-  def start_children(supervisor, num_nodes, topology \\ "full") do
+  def start_children(supervisor, num_nodes, topology \\ "full", algorithm \\ "gossip") do
     Logger.info("Starting children genserver....")
 
     if num_nodes <= 0,
       do: raise(ArgumentError, message: "num_nodes(argument 2) should be greater than 0")
 
     child_pids =
-      for _n <- 1..num_nodes do
-        {:ok, child_pid} = DynamicSupervisor.start_child(supervisor, Gossip.Node)
+      for n <- 1..num_nodes do 
+        {:ok, child_pid} = DynamicSupervisor.start_child(supervisor, {Gossip.Node, [node_number: n]})
         child_pid
       end
 
     create_topology(topology, child_pids)
-    send_fact(child_pids, {:fact, "The answer to the question is 42"})
+    initiate_algorithm(algorithm, child_pids)
+    # send_fact(child_pids, {:fact, "The answer to the question is 42"})
     {:ok, child_pids}
   end
 
@@ -50,10 +51,18 @@ defmodule Gossip.P2PSupervisor do
     end
   end
 
+  defp initiate_algorithm(algorithm, child_pids) do
+    case algorithm do
+      "gossip" -> send_fact(child_pids, {:fact, "The answer to the question is 42"})
+      "pushsum" -> send(Enum.random(child_pids), {:pushsum})
+      _ -> raise_invalid_algorithm_error()
+    end
+  end
+
   defp create_full_network(child_pids) do
     Logger.info("creating full network...")
 
-    Enum.each(child_pids, fn child_pid ->
+    Enum.each(child_pids, fn child_pid -> 
       new_neighbours = MapSet.difference(MapSet.new(child_pids), MapSet.new([child_pid]))
       Gossip.Node.add_new_neighbours(child_pid, new_neighbours)
     end)
@@ -93,8 +102,47 @@ defmodule Gossip.P2PSupervisor do
     end
   end
 
-  defp create_torrus_network(_child_pids) do
-    Logger.info("creating torrus network...")
+  defp create_torrus_network(child_pids) do
+    IO.puts "creating torus network..."
+    n = length(child_pids)
+    {rows, columns} = set_torus_dimensions(n)
+    IO.puts("create_torrus_network #{rows}, #{columns}")
+    Enum.each(0..n - 2, fn index -> 
+      new_neighbours = []
+      IO.puts("new_neighbours #{index}")
+      
+      # horizontally closed ends
+      new_neighbours = if rem(index, columns) == 0 do
+        List.insert_at(new_neighbours, 0, Enum.at(child_pids, index + columns - 1))
+        else
+          new_neighbours 
+      end
+      
+      # vertically closed ends
+      new_neighbours = if index < columns do
+        List.insert_at(new_neighbours, 0, Enum.at(child_pids, columns * (rows - 1) + index))
+        else
+          new_neighbours
+      end
+      
+      # horizontal connection
+      new_neighbours = if rem(index, columns) != columns - 1 do
+        List.insert_at(new_neighbours, 0, Enum.at(child_pids, index + 1))
+        else
+          new_neighbours
+      end
+      
+      # vertical connection
+      new_neighbours = if index < columns * (rows - 1) do
+        List.insert_at(new_neighbours, 0, Enum.at(child_pids, index + columns))
+        else
+          new_neighbours
+      end
+      
+      IO.inspect(new_neighbours)
+
+      Gossip.Node.add_new_neighbours_dual(Enum.at(child_pids, index), new_neighbours)     
+    end)
   end
 
   defp create_imperfect_line_2d_network(child_pids) do
@@ -110,6 +158,11 @@ defmodule Gossip.P2PSupervisor do
   defp raise_invalid_topology_error(_child_pids) do
     Logger.info("raising invalid topology error.....")
     raise ArgumentError, "topology(argument 3) is invalid"
+  end
+
+  defp raise_invalid_algorithm_error() do
+    Logger.info("raising invalid algorithm error.....")
+    raise ArgumentError, "algorithm(argument 4) is invalid"
   end
 
   defp create_2d_grid_slots(num_nodes) do
@@ -175,4 +228,19 @@ defmodule Gossip.P2PSupervisor do
       false
     end
   end
+
+  defp set_torus_dimensions(n) do
+    s = trunc(:math.sqrt(n))
+    find_factors(n, s)
+    # IO.puts("set_torus_dimensions #{a}, #{b}")
+
+  end
+
+  defp find_factors(n, s) do
+    cond do
+      rem(n, s) == 0 -> {s, trunc(n/s)}
+      true -> if s-1 != 0, do: find_factors(n, s-1)
+    end
+  end
+
 end
