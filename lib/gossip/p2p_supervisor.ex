@@ -96,8 +96,47 @@ defmodule Gossip.P2PSupervisor do
     end
   end
 
-  defp create_torrus_network(_child_pids) do
-    Logger.info("creating torrus network...")
+  defp create_torrus_network(child_pids) do
+    IO.puts "creating torus network..."
+    n = length(child_pids)
+    {rows, columns} = set_torus_dimensions(n)
+    IO.puts("create_torrus_network #{rows}, #{columns}")
+    Enum.each(0..n - 2, fn index -> 
+      new_neighbours = []
+      IO.puts("new_neighbours #{index}")
+      
+      # horizontally closed ends
+      new_neighbours = if rem(index, columns) == 0 do
+        List.insert_at(new_neighbours, 0, Enum.at(child_pids, index + columns - 1))
+        else
+          new_neighbours 
+      end
+      
+      # vertically closed ends
+      new_neighbours = if index < columns do
+        List.insert_at(new_neighbours, 0, Enum.at(child_pids, columns * (rows - 1) + index))
+        else
+          new_neighbours
+      end
+      
+      # horizontal connection
+      new_neighbours = if rem(index, columns) != columns - 1 do
+        List.insert_at(new_neighbours, 0, Enum.at(child_pids, index + 1))
+        else
+          new_neighbours
+      end
+      
+      # vertical connection
+      new_neighbours = if index < columns * (rows - 1) do
+        List.insert_at(new_neighbours, 0, Enum.at(child_pids, index + columns))
+        else
+          new_neighbours
+      end
+      
+      IO.inspect(new_neighbours)
+
+      Gossip.Node.add_new_neighbours_dual(Enum.at(child_pids, index), new_neighbours)     
+    end)
   end
 
   defp create_imperfect_line_2d_network(child_pids) do
@@ -151,4 +190,19 @@ defmodule Gossip.P2PSupervisor do
       false
     end
   end
+
+  defp set_torus_dimensions(n) do
+    s = trunc(:math.sqrt(n))
+    find_factors(n, s)
+    # IO.puts("set_torus_dimensions #{a}, #{b}")
+
+  end
+
+  defp find_factors(n, s) do
+    cond do
+      rem(n, s) == 0 -> {s, trunc(n/s)}
+      true -> if s-1 != 0, do: find_factors(n, s-1)
+    end
+  end
+
 end
