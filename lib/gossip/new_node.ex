@@ -4,7 +4,7 @@ defmodule Gossip.NewNode do
   @susceptible "susceptible"
   @infected "infected"
   @removed "removed"
-  @convergence_state_counter 10
+  @convergence_state_counter 10 
 
   # Client
   def start_link(opts) do
@@ -23,7 +23,6 @@ defmodule Gossip.NewNode do
   def add_new_neighbours_dual(pid, new_neighbours) do
     IO.inspect(new_neighbours)
     add_new_neighbours(pid, new_neighbours)
-    # GenServer.cast(pid, {:add_new_neighbours, new_neighbours})
     Enum.each(new_neighbours, fn new_neighbour -> add_new_neighbour(new_neighbour, pid) end)
   end
 
@@ -36,47 +35,78 @@ defmodule Gossip.NewNode do
   @impl true
   def init(opts) do
     neighbours = MapSet.new([])
-    fact = nil
+    fact = -1
     fact_counter = 0
     state = @susceptible
-    fact_monger = spawn(Gossip.FactMonger, :run, [neighbours, -1, nil])
-    {:ok, {neighbours, fact, fact_counter, state, fact_monger}}
+    fact_monger = spawn(Gossip.FactMonger, :run, [neighbours, fact, fact_counter, self(), nil])
+    monitor = Keyword.get(opts, :monitor)
+    {:ok, {neighbours, fact, fact_counter, state, fact_monger, monitor}}
   end
 
-
   @impl true
-  def handle_cast({:add_new_neighbours, new_neighbours}, {neighbours, fact, fact_counter, state, fact_monger}) do
+  def handle_cast({:add_new_neighbours, new_neighbours}, {neighbours, fact, fact_counter, state, fact_monger, monitor}) do
     new_neighbours = if !is_map(new_neighbours), do: MapSet.new(new_neighbours), else: new_neighbours
     send(fact_monger, {:neighbours, new_neighbours})
-    {:noreply, {MapSet.union(neighbours,new_neighbours), fact, fact_counter, state, fact_monger}}
+    {:noreply, {MapSet.union(neighbours,new_neighbours), fact, fact_counter, state, fact_monger, monitor}}
   end
 
   @impl true
-  def handle_info({:fact, fact}, {neighbours, _fact, fact_counter, _state, fact_monger}) do
+  def handle_info({:fact, their_fact, their_fact_counter, their_pid}, {neighbours, our_fact, our_fact_counter, _state, fact_monger, monitor}) do
     # Received a fact
     # update the fact if hearing it for the first time
+
+    # Request-Reply cycle for push-pull
+    resultant_fact = if !is_nil(their_pid)  do
+       cond do
+        their_fact_counter == our_fact_counter -> 
+          IO.puts "Fact counter #{inspect(their_pid)} == #{inspect(self())}"
+           their_fact
+        their_fact_counter > our_fact_counter ->
+          IO.puts "Fact counter #{inspect(their_pid)} > #{inspect(self())}"
+           #send(their_pid, {:fact, their_fact, our_fact_counter, self()})
+          their_fact
+        their_fact_counter < our_fact_counter -> 
+          IO.puts "Fact counter #{inspect(their_pid)} <  #{inspect(self())}"
+          send(their_pid, {:fact, our_fact, our_fact_counter, self()})
+          our_fact
+        true -> 
+         their_fact
+      end
+    else
+        IO.puts "Received from supervisor"
+        their_fact
+    end
+
+    IO.puts "Resultant fact is #{resultant_fact}"
+
     # update the fact counter
-    fact_counter = fact_counter + 1
-    IO.inspect fact_counter
+    our_fact_counter = our_fact_counter + 1
+    IO.inspect our_fact_counter
+
     state = cond do
-      fact_counter == 1 -> 
-        IO.puts "Changed state to infected just now #{inspect(self)}"
-        send(fact_monger, {:fact, fact})
+
+      our_fact_counter == 1 -> 
+        IO.puts "Changed state to infected just now #{inspect(self())}"
+        send(fact_monger, {:fact, resultant_fact, our_fact_counter, self()})
         @infected
-      fact_counter > 1 and fact_counter < @convergence_state_counter ->
-        IO.puts "Not yet reached convergence #{inspect(self)}"
-        send(fact_monger, {:fact, fact})
+
+      our_fact_counter > 1 and our_fact_counter < @convergence_state_counter ->
+        IO.puts "Not yet reached convergence #{inspect(self())}"
+        send(fact_monger, {:fact, resultant_fact, our_fact_counter, self()})
         @infected
-      fact_counter >= @convergence_state_counter -> 
-        IO.puts "Reached convergence for #{inspect(self)}"
-        if fact_counter == @convergence_state_counter do
+
+      our_fact_counter >= @convergence_state_counter -> 
+        IO.puts "Reached convergence for #{inspect(self())}"
+        if our_fact_counter == @convergence_state_counter do
           send(fact_monger, {:stop, 1})
+          send(monitor, {:convergence_event, self()})
         end
         @removed
+
       true -> 
         nil
     end
 
-    {:noreply, {neighbours, fact, fact_counter, state, fact_monger}}
+    {:noreply, {neighbours, resultant_fact, our_fact_counter, state, fact_monger, monitor}}
   end
 end

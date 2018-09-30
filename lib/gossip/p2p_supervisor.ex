@@ -7,7 +7,7 @@ defmodule Gossip.P2PSupervisor do
     DynamicSupervisor.start_link(__MODULE__, arg, name: Gossip.P2PSupervisor)
   end
 
-  def start_children(supervisor, num_nodes, topology \\ "full", algorithm \\ "gossip") do
+  def start_children(supervisor, num_nodes, monitor, topology \\ "full", algorithm \\ "gossip") do
     Logger.info("Starting children genserver....")
 
     if num_nodes <= 0,
@@ -15,7 +15,7 @@ defmodule Gossip.P2PSupervisor do
 
     child_pids =
       for n <- 1..num_nodes do 
-        {:ok, child_pid} = DynamicSupervisor.start_child(supervisor, {Gossip.NewNode, [node_number: n]})
+        {:ok, child_pid} = DynamicSupervisor.start_child(supervisor, {Gossip.NewNode, [node_number: n, monitor: monitor]})
         child_pid
       end
 
@@ -115,13 +115,13 @@ defmodule Gossip.P2PSupervisor do
   end
 
   defp create_torrus_network(child_pids) do
-    IO.puts "creating torus network..."
+    Logger.debug( "creating torus network...")
     n = length(child_pids)
     {rows, columns} = set_torus_dimensions(n)
-    IO.puts("create_torrus_network #{rows}, #{columns}")
+    Logger.debug(("create_torrus_network #{rows}, #{columns}"))
     Enum.each(0..n - 2, fn index -> 
       new_neighbours = []
-      IO.puts("new_neighbours #{index}")
+      Logger.debug(("new_neighbours #{index}"))
       
       # horizontally closed ends
       new_neighbours = if rem(index, columns) == 0 do
@@ -293,7 +293,7 @@ defmodule Gossip.P2PSupervisor do
   defp set_torus_dimensions(n) do
     s = trunc(:math.sqrt(n))
     find_factors(n, s)
-    # IO.puts("set_torus_dimensions #{a}, #{b}")
+    # Logger.debug(("set_torus_dimensions #{a}, #{b}"))
 
   end
 
