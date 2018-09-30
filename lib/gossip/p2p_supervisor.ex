@@ -165,19 +165,22 @@ defmodule Gossip.P2PSupervisor do
   end
 
   defp create_3d_grid_slots(num_nodes) do
-    # Considering a cube grid 
-    # Hence num_nodes ^ (1/3)
-    size =
-      if num_nodes > 8 do
-        round(:math.ceil(:math.pow(num_nodes, 1 / 3))) - 1
-      else
-        1
-      end
+    # Considering a cuboid grid 
+    a = round(:math.pow(num_nodes, 1 / 3))
+    b = round(:math.sqrt(num_nodes / a))
+    c = round(:math.ceil(num_nodes / (a * b)))
+
+    # size =
+    # if num_nodes > 8 do
+    # round(:math.ceil(:math.pow(num_nodes, 1 / 3))) - 1
+    # else
+    # 1
+    # end
 
     List.flatten(
-      Enum.map(0..size, fn x ->
-        Enum.map(0..size, fn y ->
-          Enum.map(0..size, fn z -> {x, y, z} end)
+      Enum.map(0..(a - 1), fn x ->
+        Enum.map(0..(b - 1), fn y ->
+          Enum.map(0..(c - 1), fn z -> {x, y, z} end)
         end)
       end)
     )
