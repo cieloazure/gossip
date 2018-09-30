@@ -128,13 +128,13 @@ defmodule Gossip.P2PSupervisor do
     generate_values(0, step)
   end
 
-  def generate_values(x, step, l \\ [])
+  defp generate_values(x, step, l \\ [])
 
-  def generate_values(x, _step, l) when x == 1 do
+  defp generate_values(x, _step, l) when x == 1 do
     Enum.dedup(l) |> Enum.reverse()
   end
 
-  def generate_values(x, step, l) when x < 1 do
+  defp generate_values(x, step, l) when x < 1 do
     l = [x | l]
     x = Float.round(x / 1 + step / 1, 2)
 
