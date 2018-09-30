@@ -15,12 +15,12 @@ defmodule Gossip.P2PSupervisor do
 
     child_pids =
       for n <- 1..num_nodes do 
-        {:ok, child_pid} = DynamicSupervisor.start_child(supervisor, {Gossip.Node, [node_number: n]})
+        {:ok, child_pid} = DynamicSupervisor.start_child(supervisor, {Gossip.NewNode, [node_number: n]})
         child_pid
       end
 
     create_topology(topology, child_pids)
-    initiate_algorithm(algorithm, child_pids)
+    # initiate_algorithm(algorithm, child_pids)
     # send_fact(child_pids, {:fact, "The answer to the question is 42"})
     {:ok, child_pids}
   end
@@ -53,7 +53,7 @@ defmodule Gossip.P2PSupervisor do
 
   defp initiate_algorithm(algorithm, child_pids) do
     case algorithm do
-      "gossip" -> send_fact(child_pids, {:fact, "The answer to the question is 42"})
+      "gossip" -> send_fact(child_pids, {:fact, 42})
       "pushsum" -> send(Enum.random(child_pids), {:pushsum})
       _ -> raise_invalid_algorithm_error()
     end
