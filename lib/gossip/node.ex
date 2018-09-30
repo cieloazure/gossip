@@ -71,6 +71,7 @@ defmodule Gossip.Node do
         send_status(neighbours)
       receipt_counter == 1 ->
         Process.spawn(fn -> send(Enum.random(neighbours), {:fact, fact}) end, [:monitor])
+      true -> nil
     end
 
     {:noreply, {neighbours, fact, receipt_counter, counter, sum, weight}}
@@ -141,11 +142,6 @@ defmodule Gossip.Node do
   end
 
   # Private Functions
-  @doc """
-  A function to send a message to all neighbouring nodes that the sender has stopped transmitting fact.
-
-  Accepts list of neighbours.
-  """
   defp send_status(neighbours) do
     Enum.map(neighbours, fn neighbour -> send(neighbour, {:status, @status}) end)
   end
