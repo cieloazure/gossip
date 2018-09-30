@@ -151,7 +151,7 @@ defmodule Gossip.P2PSupervisor do
           new_neighbours
       end
       
-      IO.inspect(new_neighbours)
+      #IO.inspect(new_neighbours)
 
       Gossip.Node.add_new_neighbours_dual(Enum.at(child_pids, index), new_neighbours)     
     end)

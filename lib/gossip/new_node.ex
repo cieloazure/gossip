@@ -21,7 +21,7 @@ defmodule Gossip.NewNode do
   end
 
   def add_new_neighbours_dual(pid, new_neighbours) do
-    IO.inspect(new_neighbours)
+    #IO.inspect(new_neighbours)
     add_new_neighbours(pid, new_neighbours)
     Enum.each(new_neighbours, fn new_neighbour -> add_new_neighbour(new_neighbour, pid) end)
   end
@@ -59,44 +59,44 @@ defmodule Gossip.NewNode do
     resultant_fact = if !is_nil(their_pid)  do
        cond do
         their_fact_counter == our_fact_counter -> 
-          IO.puts "Fact counter #{inspect(their_pid)} == #{inspect(self())}"
+          #IO.puts "Fact counter #{inspect(their_pid)} == #{inspect(self())}"
            their_fact
         their_fact_counter > our_fact_counter ->
-          IO.puts "Fact counter #{inspect(their_pid)} > #{inspect(self())}"
+          #IO.puts "Fact counter #{inspect(their_pid)} > #{inspect(self())}"
            #send(their_pid, {:fact, their_fact, our_fact_counter, self()})
           their_fact
         their_fact_counter < our_fact_counter -> 
-          IO.puts "Fact counter #{inspect(their_pid)} <  #{inspect(self())}"
+          #IO.puts "Fact counter #{inspect(their_pid)} <  #{inspect(self())}"
           send(their_pid, {:fact, our_fact, our_fact_counter, self()})
           our_fact
         true -> 
          their_fact
       end
     else
-        IO.puts "Received from supervisor"
+        #IO.puts "Received from supervisor"
         their_fact
     end
 
-    IO.puts "Resultant fact is #{resultant_fact}"
+    #IO.puts "Resultant fact is #{resultant_fact}"
 
     # update the fact counter
     our_fact_counter = our_fact_counter + 1
-    IO.inspect our_fact_counter
+    #IO.inspect our_fact_counter
 
     state = cond do
 
       our_fact_counter == 1 -> 
-        IO.puts "Changed state to infected just now #{inspect(self())}"
+        #IO.puts "Changed state to infected just now #{inspect(self())}"
         send(fact_monger, {:fact, resultant_fact, our_fact_counter, self()})
         @infected
 
       our_fact_counter > 1 and our_fact_counter < @convergence_state_counter ->
-        IO.puts "Not yet reached convergence #{inspect(self())}"
+        #IO.puts "Not yet reached convergence #{inspect(self())}"
         send(fact_monger, {:fact, resultant_fact, our_fact_counter, self()})
         @infected
 
       our_fact_counter >= @convergence_state_counter -> 
-        IO.puts "Reached convergence for #{inspect(self())}"
+        #IO.puts "Reached convergence for #{inspect(self())}"
         if our_fact_counter == @convergence_state_counter do
           send(fact_monger, {:stop, 1})
           send(monitor, {:convergence_event, self()})
