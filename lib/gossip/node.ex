@@ -2,6 +2,7 @@ defmodule Gossip.Node do
   use GenServer
 
   @counter_limit 10
+  @message_interval 2
 
   @status "limit reached. Shutting Transmitting"
 
@@ -21,8 +22,6 @@ defmodule Gossip.Node do
 
   def add_new_neighbours_dual(pid, new_neighbours) do
 
-    IO.puts "#################new_neighbours"
-    IO.inspect(new_neighbours)
     add_new_neighbours(pid, new_neighbours)
     # GenServer.cast(pid, {:add_new_neighbours, new_neighbours})
     Enum.each(new_neighbours, fn new_neighbour -> add_new_neighbour(new_neighbour, pid) end)
@@ -68,6 +67,7 @@ defmodule Gossip.Node do
 
     cond do
       receipt_counter == @counter_limit ->
+        # IO.puts("#{sum} stopping")
         send_status(neighbours)
       receipt_counter == 1 ->
         Process.spawn(fn -> send(Enum.random(neighbours), {:fact, fact}) end, [:monitor])
@@ -106,7 +106,7 @@ defmodule Gossip.Node do
       receipt_counter
     end
     
-    {new_sum, new_weight} = if receipt_counter < 3 do
+    {new_sum, new_weight} = if receipt_counter < @counter_limit do
       send(Enum.random(neighbours), {:pushsum, {new_sum/2, new_weight/2}})
       {new_sum/2, new_weight/2}
     else
@@ -124,7 +124,10 @@ defmodule Gossip.Node do
   def handle_info({:DOWN, _ref, :process, _object, _reason}, {neighbours, fact, receipt_counter, counter, sum, weight}) do
     if counter != 0 do
 
-      Process.spawn(fn -> send(Enum.random(neighbours), {:fact, fact}) end, [:monitor])
+      Process.spawn(fn -> 
+        Process.sleep(@message_interval)
+        send(Enum.random(neighbours), {:fact, fact}) 
+      end, [:monitor])
     end
     {:noreply, {neighbours, fact, receipt_counter, counter, sum, weight}}
   end
@@ -132,7 +135,6 @@ defmodule Gossip.Node do
   @impl true
   def handle_info({:status, _status}, {neighbours, fact, receipt_counter, counter, sum, weight}) do
     counter = counter - 1
-
     {:noreply, {neighbours, fact, receipt_counter, counter, sum, weight}}
   end
 

@@ -115,13 +115,13 @@ defmodule Gossip.P2PSupervisor do
   end
 
   defp create_torrus_network(child_pids) do
-    IO.puts "creating torus network..."
+    # IO.puts "creating torus network..."
     n = length(child_pids)
     {rows, columns} = set_torus_dimensions(n)
-    IO.puts("create_torrus_network #{rows}, #{columns}")
+    # IO.puts("create_torrus_network #{rows}, #{columns}")
     Enum.each(0..n - 2, fn index -> 
       new_neighbours = []
-      IO.puts("new_neighbours #{index}")
+      # IO.puts("new_neighbours #{index}")
       
       # horizontally closed ends
       new_neighbours = if rem(index, columns) == 0 do
@@ -151,7 +151,7 @@ defmodule Gossip.P2PSupervisor do
           new_neighbours
       end
       
-      IO.inspect(new_neighbours)
+      # IO.inspect(new_neighbours)
 
       Gossip.Node.add_new_neighbours_dual(Enum.at(child_pids, index), new_neighbours)     
     end)
