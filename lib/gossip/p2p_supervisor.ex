@@ -1,4 +1,4 @@
-defmodule Gossip.P2PSupervisor do
+defmodule Gossip.P2PSupervisor do 
   use DynamicSupervisor
   require Logger
 
@@ -7,20 +7,21 @@ defmodule Gossip.P2PSupervisor do
     DynamicSupervisor.start_link(__MODULE__, arg, name: Gossip.P2PSupervisor)
   end
 
-  def start_children(supervisor, num_nodes, topology \\ "full") do
+  def start_children(supervisor, num_nodes, topology \\ "full", algorithm \\ "gossip") do
     Logger.info("Starting children genserver....")
 
     if num_nodes <= 0,
       do: raise(ArgumentError, message: "num_nodes(argument 2) should be greater than 0")
 
     child_pids =
-      for _n <- 1..num_nodes do
-        {:ok, child_pid} = DynamicSupervisor.start_child(supervisor, Gossip.Node)
+      for n <- 1..num_nodes do 
+        {:ok, child_pid} = DynamicSupervisor.start_child(supervisor, {Gossip.Node, [node_number: n]})
         child_pid
       end
 
     create_topology(topology, child_pids)
-    send_fact(child_pids, {:fact, "The answer to the question is 42"})
+    initiate_algorithm(algorithm, child_pids)
+    # send_fact(child_pids, {:fact, "The answer to the question is 42"})
     {:ok, child_pids}
   end
 
@@ -50,10 +51,18 @@ defmodule Gossip.P2PSupervisor do
     end
   end
 
+  defp initiate_algorithm(algorithm, child_pids) do
+    case algorithm do
+      "gossip" -> send_fact(child_pids, {:fact, "The answer to the question is 42"})
+      "pushsum" -> send(Enum.random(child_pids), {:pushsum})
+      _ -> raise_invalid_algorithm_error()
+    end
+  end
+
   defp create_full_network(child_pids) do
     Logger.info("creating full network...")
 
-    Enum.each(child_pids, fn child_pid ->
+    Enum.each(child_pids, fn child_pid -> 
       new_neighbours = MapSet.difference(MapSet.new(child_pids), MapSet.new([child_pid]))
       Gossip.Node.add_new_neighbours(child_pid, new_neighbours)
     end)
@@ -152,6 +161,11 @@ defmodule Gossip.P2PSupervisor do
   defp raise_invalid_topology_error(_child_pids) do
     Logger.info("raising invalid topology error.....")
     raise ArgumentError, "topology(argument 3) is invalid"
+  end
+
+  defp raise_invalid_algorithm_error() do
+    Logger.info("raising invalid algorithm error.....")
+    raise ArgumentError, "algorithm(argument 4) is invalid"
   end
 
   defp create_grid_slots do
