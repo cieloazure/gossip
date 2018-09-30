@@ -71,8 +71,19 @@ defmodule Gossip.P2PSupervisorTest do
       end)
     end
 
-    test "creates a random 2d network" do
+    test "creates a random 2d network of < 100 nodes" do
       {:ok, child_pids} = Gossip.P2PSupervisor.start_children(Gossip.P2PSupervisor, 50, "rand2D")
+
+      neighbour_sizes =
+        Enum.map(child_pids, fn child_pid ->
+          MapSet.size(Gossip.Node.get_neighbours(child_pid))
+        end)
+
+      assert Enum.any?(neighbour_sizes, fn size -> size >= 1 end)
+    end
+    
+    test "creates a random 2d network > 100 nodes" do
+      {:ok, child_pids} = Gossip.P2PSupervisor.start_children(Gossip.P2PSupervisor, 225, "rand2D")
 
       neighbour_sizes =
         Enum.map(child_pids, fn child_pid ->
