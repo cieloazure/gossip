@@ -15,7 +15,7 @@ defmodule Gossip.P2PSupervisor do
 
     child_pids =
       for n <- 1..num_nodes do 
-        {:ok, child_pid} = DynamicSupervisor.start_child(supervisor, {Gossip.Node, [n]})
+        {:ok, child_pid} = DynamicSupervisor.start_child(supervisor, {Gossip.Node, [node_number: n]})
         child_pid
       end
 

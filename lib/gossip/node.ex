@@ -27,7 +27,7 @@ defmodule Gossip.Node do
 
   @impl true
   def init(opts) do
-    sum = Enum.at(opts, 0)
+    sum = Keyword.get(opts, :node_number)
     weight = 1
     fact = ""
     receipt_counter = 0
@@ -56,11 +56,13 @@ defmodule Gossip.Node do
   @impl true
   def handle_info({:fact, fact}, {neighbours, _fact, receipt_counter, counter, sum, weight}) do
     receipt_counter = receipt_counter + 1
-    if receipt_counter == @counter_limit do
-      send_status(neighbours)
-    end
 
-    if receipt_counter == 1, do: Process.spawn(fn -> send(Enum.random(neighbours), {:fact, fact}) end, [:monitor])
+    cond do
+      receipt_counter == @counter_limit ->
+        send_status(neighbours)
+      receipt_counter == 1 ->
+        Process.spawn(fn -> send(Enum.random(neighbours), {:fact, fact}) end, [:monitor])
+    end
 
     {:noreply, {neighbours, fact, receipt_counter, counter, sum, weight}}
   end
