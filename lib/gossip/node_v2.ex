@@ -77,7 +77,6 @@ defmodule Gossip.NodeV2 do
 
           their_fact_counter > our_fact_counter ->
             Logger.debug("Fact counter #{inspect(their_pid)} > #{inspect(self())}")
-            # send(their_pid, {:fact, their_fact, our_fact_counter, self()})
             {their_fact, our_fact_counter + 1}
 
           their_fact_counter < our_fact_counter ->
@@ -93,7 +92,7 @@ defmodule Gossip.NodeV2 do
         {their_fact, our_fact_counter + 1}
       end
 
-    # IO.puts "Resultant fact is #{resultant_fact}"
+    Logger.debug("Resultant fact is #{resultant_fact}")
 
     state =
       cond do
