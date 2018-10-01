@@ -40,7 +40,7 @@ defmodule Gossip.Supervisor do
   def initiate_algorithm(child_pids, algorithm \\ @gossip) do
     case algorithm do
       @gossip -> send_fact(child_pids, {:fact, 42, -1, nil})
-      @pushsum -> send(Enum.random(child_pids), {:pushsum})
+      @pushsum -> send(Enum.random(child_pids), {:pushsum, 0, 0})
       _ -> raise_invalid_algorithm_error()
     end
   end

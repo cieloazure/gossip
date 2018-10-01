@@ -1,6 +1,6 @@
 defmodule Gossip.FactMonger do
   require Logger
-  @mongering_interval 5
+  @mongering_interval 3
 
   def start(pid) do
     Gossip.Ticker.start(pid, @mongering_interval)
@@ -10,14 +10,15 @@ defmodule Gossip.FactMonger do
     Gossip.Ticker.stop(pid)
   end
 
-  def run(neighbours, fact, our_fact_counter, our_pid, ticker_pid) do
+  def run(neighbours, fact, our_fact_counter, sum, weight, our_pid, ticker_pid) do
     receive do
       {:tick, _index} = message ->
         Logger.debug(inspect(message))
         Logger.debug(inspect(neighbours))
         Logger.debug("Sending fact to one of neighbour: #{fact}")
-        send(Enum.random(neighbours), {:fact, fact, our_fact_counter, our_pid})
-        run(neighbours, fact, our_fact_counter, our_pid, ticker_pid)
+        # send(Enum.random(neighbours), {:fact, fact, our_fact_counter, our_pid})
+        send(Enum.random(neighbours), {:pushsum, sum, weight})
+        run(neighbours, fact, our_fact_counter, sum, weight, our_pid, ticker_pid)
 
       {:last_tick, _index} = message ->
         Logger.debug(inspect(message))
@@ -38,18 +39,30 @@ defmodule Gossip.FactMonger do
             ticker_pid
           end
 
-        run(neighbours, new_fact, new_fact_counter, our_new_pid, ticker_pid)
+        run(neighbours, new_fact, new_fact_counter, sum, weight, our_new_pid, ticker_pid)
+
+      {:pushsum, new_sum, new_weight} ->
+
+        ticker_pid =
+          if fact == -1 do
+            start(self())
+          else
+            ticker_pid
+          end
+
+        run(neighbours, fact, our_fact_counter, new_sum, new_weight, our_pid, ticker_pid)
+
 
       {:neighbours, new_neighbours} ->
         Logger.debug("Updating neighbours list")
         neighbours = MapSet.union(new_neighbours, neighbours)
         Logger.debug(inspect(neighbours))
-        run(neighbours, fact, our_fact_counter, our_pid, ticker_pid)
+        run(neighbours, fact, our_fact_counter, sum, weight, our_pid, ticker_pid)
 
       {:stop, _reason} ->
         Logger.debug("Got instruction to terminate spreading rumour")
         stop(ticker_pid)
-        run(neighbours, fact, our_fact_counter, our_pid, ticker_pid)
+        run(neighbours, fact, our_fact_counter, sum, weight, our_pid, ticker_pid)
     end
   end
 end
