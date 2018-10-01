@@ -27,7 +27,7 @@ defmodule Gossip.Supervisor do
         {:ok, child_pid} =
           DynamicSupervisor.start_child(
             supervisor,
-            {Gossip.NodeV2, [node_number: n, monitor: monitor]}
+            {Gossip.NodeV3, [node_number: n, monitor: monitor]}
           )
 
         child_pid
