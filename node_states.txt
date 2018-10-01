@@ -1,0 +1,6 @@
+10 full pushsum
+execution time = 11.54 ms
+Node States:
+#PID<0.124.0>: Sum Estimate = 5.850114887316451
+#PID<0.125.0>: Sum Estimate = 5.521426529974638
+#PID<0.126.0>: Sum Estimate = 6.289344031659023

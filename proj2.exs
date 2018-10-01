@@ -8,25 +8,30 @@ if length(System.argv) != 3 do
 
 IO.puts "\ntime = #{time/1000} ms"
 
-File.rm("node_states.txt")
-{:ok, file} = File.open "node_states.txt", [:write]
-IO.write(file, "#{numNodes} " <> topology <> " " <> algorithm)
-IO.write(file, "\nexecution time = #{time/1000} ms")
-IO.write(file, "\nNode States:\n")
+Enum.each(child_pids, fn pid ->
+	{_neighbours, _fact, _fact_counter, sum, weight} = :sys.get_state(pid)
+	IO.puts(inspect(pid) <> ": Sum Estimate = " <> inspect(sum/weight) <> "\n")
+end)
 
-case algorithm do
-	"gossip" ->
-		Enum.each(child_pids, fn pid ->
-			{_neighbours, fact, _fact_counter, _counter, _sum, _weight} = :sys.get_state(pid)
-			IO.write(file, inspect(pid) <> ": Fact = " <> fact <> "\n")
-		end)
+# File.rm("node_states.txt")
+# {:ok, file} = File.open "node_states.txt", [:write]
+# IO.write(file, "#{numNodes} " <> topology <> " " <> algorithm)
+# IO.write(file, "\nexecution time = #{time/1000} ms")
+# IO.write(file, "\nNode States:\n")
 
-	"pushsum" ->
-		Enum.each(child_pids, fn pid ->
-			state = :sys.get_state(pid)
-			IO.write(file, inspect(pid) <> ": Sum Estimate = " <> inspect(Enum.at(Tuple.to_list(state), 4)/Enum.at(Tuple.to_list(state), 5)) <> "\n")
-		end)
+# case algorithm do
+# 	"gossip" ->
+# 		Enum.each(child_pids, fn pid ->
+# 			{_neighbours, fact, _fact_counter, _sum, _weight} = :sys.get_state(pid)
+# 			IO.write(file, inspect(pid) <> ": Fact = " <> fact <> "\n")
+# 		end)
 
-	_ -> nil
-end
+# 	"pushsum" ->
+# 		Enum.each(child_pids, fn pid ->
+# 			{_neighbours, _fact, _fact_counter, sum, weight} = :sys.get_state(pid)
+# 			IO.write(file, inspect(pid) <> ": Sum Estimate = " <> inspect(sum/weight) <> "\n")
+# 		end)
+
+# 	_ -> nil
+# end
 # {t, {:ok, child_pids}} = :timer.tc(Gossip.P2PSupervisor, :start_children, [Gossip.P2PSupervisor, String.to_integer(numNodes), topology, algorithm])

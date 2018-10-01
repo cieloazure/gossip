@@ -2,7 +2,7 @@ defmodule Gossip.Node do
   use GenServer
 
   @counter_limit 10
-  @message_interval 5
+  @message_interval 2
 
   # Client
   def start_link(opts) do
@@ -37,9 +37,8 @@ defmodule Gossip.Node do
     weight = 1
     fact = ""
     fact_counter = 0
-    counter = 0
     neighbours = MapSet.new([])
-    {:ok, {neighbours, fact, fact_counter, counter, sum, weight}}
+    {:ok, {neighbours, fact, fact_counter, sum, weight}}
   end
 
   @impl true
@@ -48,19 +47,19 @@ defmodule Gossip.Node do
 
   Adds new_neighbours to the neighbours MapSet of the node.
   """
-  def handle_cast({:add_new_neighbours, new_neighbours}, {neighbours, fact, fact_counter, _counter, sum, weight}) do
+  def handle_cast({:add_new_neighbours, new_neighbours}, {neighbours, fact, fact_counter, sum, weight}) do
     new_neighbours = if !is_map(new_neighbours), do: MapSet.new(new_neighbours), else: new_neighbours
-    {:noreply, {MapSet.union(neighbours,new_neighbours), fact, fact_counter, MapSet.size(MapSet.union(neighbours,new_neighbours)), sum, weight}}
+    {:noreply, {MapSet.union(neighbours,new_neighbours), fact, fact_counter, sum, weight}}
   end
 
   @doc """
-  Callback to handle messages of the type '{:fact, fact}'
+  Callback to handle messages of the type '{:gossip, fact}'
 
   This Callback is responsible for receiving gossip messages and updating fact_counter.
   Also initiates message transmission if fact_counter == 1.
   """
   @impl true
-  def handle_info({:fact, their_fact, their_fact_counter, their_pid}, {neighbours, my_fact, my_fact_counter, counter, sum, weight}) do
+  def handle_info({:gossip, their_fact, their_fact_counter, their_pid}, {neighbours, my_fact, my_fact_counter, sum, weight}) do
     
     fact = if !is_nil(their_fact) do
       cond do
@@ -68,7 +67,7 @@ defmodule Gossip.Node do
           their_fact
 
         their_fact_counter < my_fact_counter ->
-          send(their_pid, {:fact, my_fact, my_fact_counter, self()})
+          send(their_pid, {:gossip, my_fact, my_fact_counter, self()})
           my_fact
 
         true ->
@@ -80,71 +79,73 @@ defmodule Gossip.Node do
 
     my_fact_counter = my_fact_counter + 1
 
-    if my_fact_counter == 1, do:
-        Process.spawn(fn -> send(Enum.random(neighbours), {:fact, fact, my_fact_counter, self()}) end, [:monitor])
+    if my_fact_counter == 1 do
+      send(Enum.random(neighbours), {:gossip, fact, my_fact_counter, self()})
+      send(self(), {:gossip})
+    end
 
-    {:noreply, {neighbours, fact, my_fact_counter, counter, sum, weight}}
+    {:noreply, {neighbours, fact, my_fact_counter, sum, weight}}
+  end
+
+  @impl true
+  def handle_info({:gossip}, {neighbours, fact, fact_counter, sum, weight}) do
+    if fact_counter < @counter_limit do
+      send(Enum.random(neighbours), {:gossip, fact, fact_counter, self()})
+      send(self(), {:gossip})
+    end
+    {:noreply, {neighbours, fact, fact_counter, sum, weight}}
   end
 
   @doc """
-  Callback to handle down message from monitored process.
-  Starts a new process to send fact to another random neighbouring node.
+  Callback to handle messages of the type '{:pushsum, sum, weight}'
+
+  This callback accepts the pushsum messages, updates node's sum and weight, 
+  and continues by transmitting pushsum message to a random neighbouring node.
   """
   @impl true
-  def handle_info({:DOWN, _ref, :process, _object, _reason}, {neighbours, fact, fact_counter, counter, sum, weight}) do
-    if fact_counter < @counter_limit do
+  def handle_info({:pushsum, s, w}, {neighbours, fact, fact_counter, sum, weight}) do
+    new_sum = sum + s
+    new_weight = weight + w
+    sum_estimate_delta = new_sum/new_weight - sum/weight
 
-      Process.spawn(fn -> 
-        # Process.sleep(@message_interval)
-        send(Enum.random(neighbours), {:fact, fact, fact_counter, self()})
-        send(self(), {:fact}) 
-      end, [:monitor])
+    {new_sum, new_weight, counter} = cond do
+      sum_estimate_delta >= :math.pow(10, -10) ->
+        send(Enum.random(neighbours), {:pushsum, new_sum/2, new_weight/2})
+        send(self(), {:pushsum})
+        {new_sum/2, new_weight/2, fact_counter}
+
+      sum_estimate_delta < :math.pow(10, -10) ->
+        if fact_counter + 1 < 10 do
+          send(Enum.random(neighbours), {:pushsum, new_sum/2, new_weight/2})
+          send(self(), {:pushsum})
+          {new_sum/2, new_weight/2, fact_counter + 1}
+        else
+          {new_sum, new_weight, fact_counter}
+        end
+
+      true ->
+        nil
     end
-    {:noreply, {neighbours, fact, fact_counter, counter, sum, weight}}
-  end
 
+    {:noreply, {neighbours, fact, counter, new_sum, new_weight}}
+  end
+  
   @doc """
   Callback to handle messages of the type '{:pushsum}'
 
   This Callback accepts the initial message for pushsum from the Supervisor.
   """
   @impl true
-  def handle_info({:pushsum}, {neighbours, fact, fact_counter, counter, sum, weight}) do
-    send(Enum.random(neighbours), {:pushsum, {sum/2, weight/2}})
-    {:noreply, {neighbours, fact, fact_counter, counter, sum/2, weight/2}}
-  end
-
-  @doc """
-  Callback to handle messages of the type '{:pushum, sum, weight}'
-
-  This callback accepts the pushsum messages, updates node's sum and weight, 
-  and continues by transmitting pushsum message to a random neighbouring node.
-  """
-  @impl true
-  def handle_info({:pushsum, {s, w}}, {neighbours, fact, fact_counter, counter, sum, weight}) do
-    new_sum = sum + s
-    new_weight = weight + w
-    sum_estimate_delta = new_sum/new_weight - sum/weight
-    
-    fact_counter = if sum_estimate_delta <= :math.pow(10, -10) do
-      fact_counter + 1
-    else
-      fact_counter
-    end
-    
-    {new_sum, new_weight} = if fact_counter < @counter_limit do
-      send(Enum.random(neighbours), {:pushsum, {new_sum/2, new_weight/2}})
-      {new_sum/2, new_weight/2}
-    else
-      {new_sum, new_weight}
-    end
-
-    {:noreply, {neighbours, fact, fact_counter, counter, new_sum, new_weight}}
+  def handle_info({:pushsum}, {neighbours, fact, fact_counter, sum, weight}) do
+    # Process.sleep(@message_interval)
+    send(Enum.random(neighbours), {:pushsum, sum/2, weight/2})
+    send(self(), {:pushsum})
+    {:noreply, {neighbours, fact, fact_counter, sum/2, weight/2}}
   end
 
   @impl true
-  def handle_call({:get_neighbours}, _from, {neighbours, fact, fact_counter, counter, sum, weight}) do
-    {:reply, neighbours, {neighbours, fact, fact_counter, counter, sum, weight}}
+  def handle_call({:get_neighbours}, _from, {neighbours, fact, fact_counter, sum, weight}) do
+    {:reply, neighbours, {neighbours, fact, fact_counter, sum, weight}}
   end
 
 end

@@ -21,13 +21,13 @@ defmodule Gossip.P2PSupervisor do
 
     create_topology(topology, child_pids)
     initiate_algorithm(algorithm, child_pids)
-    # send_fact(child_pids, {:fact, "The answer to the question is 42"})
+    # send_fact(child_pids, {:gossip, "The answer to the question is 42"})
     {:ok, child_pids}
   end
 
-  def send_fact(child_pids, {:fact, fact, default_fact_counter, pid}) do
+  def send_fact(child_pids, {:gossip, fact, default_fact_counter, pid}) do
     random_child_pid = Enum.random(child_pids)
-    send(random_child_pid, {:fact, fact, default_fact_counter, pid})
+    send(random_child_pid, {:gossip, fact, default_fact_counter, pid})
   end
 
   # Callback
@@ -53,7 +53,7 @@ defmodule Gossip.P2PSupervisor do
 
   defp initiate_algorithm(algorithm, child_pids) do
     case algorithm do
-      "gossip" -> send_fact(child_pids, {:fact, "The answer to the question is 42", 0, self()})
+      "gossip" -> send_fact(child_pids, {:gossip, "The answer to the question is 42", 0, self()})
       "pushsum" -> send(Enum.random(child_pids), {:pushsum})
       _ -> raise_invalid_algorithm_error()
     end
