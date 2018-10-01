@@ -20,8 +20,7 @@ defmodule Gossip.Node do
   end
 
   def add_new_neighbours_dual(pid, new_neighbours) do
-
-    IO.puts "#################new_neighbours"
+    IO.puts("#################new_neighbours")
     IO.inspect(new_neighbours)
     add_new_neighbours(pid, new_neighbours)
     # GenServer.cast(pid, {:add_new_neighbours, new_neighbours})
@@ -51,9 +50,16 @@ defmodule Gossip.Node do
 
   Adds new_neighbours to the neighbours MapSet of the node.
   """
-  def handle_cast({:add_new_neighbours, new_neighbours}, {neighbours, fact, receipt_counter, _counter, sum, weight}) do
-    new_neighbours = if !is_map(new_neighbours), do: MapSet.new(new_neighbours), else: new_neighbours
-    {:noreply, {MapSet.union(neighbours,new_neighbours), fact, receipt_counter, MapSet.size(MapSet.union(neighbours,new_neighbours)), sum, weight}}
+  def handle_cast(
+        {:add_new_neighbours, new_neighbours},
+        {neighbours, fact, receipt_counter, _counter, sum, weight}
+      ) do
+    new_neighbours =
+      if !is_map(new_neighbours), do: MapSet.new(new_neighbours), else: new_neighbours
+
+    {:noreply,
+     {MapSet.union(neighbours, new_neighbours), fact, receipt_counter,
+      MapSet.size(MapSet.union(neighbours, new_neighbours)), sum, weight}}
   end
 
   @doc """
@@ -69,9 +75,12 @@ defmodule Gossip.Node do
     cond do
       receipt_counter == @counter_limit ->
         send_status(neighbours)
+
       receipt_counter == 1 ->
         Process.spawn(fn -> send(Enum.random(neighbours), {:fact, fact}) end, [:monitor])
-      true -> nil
+
+      true ->
+        nil
     end
 
     {:noreply, {neighbours, fact, receipt_counter, counter, sum, weight}}
@@ -84,8 +93,8 @@ defmodule Gossip.Node do
   """
   @impl true
   def handle_info({:pushsum}, {neighbours, fact, receipt_counter, counter, sum, weight}) do
-    send(Enum.random(neighbours), {:pushsum, {sum/2, weight/2}})
-    {:noreply, {neighbours, fact, receipt_counter, counter, sum/2, weight/2}}
+    send(Enum.random(neighbours), {:pushsum, {sum / 2, weight / 2}})
+    {:noreply, {neighbours, fact, receipt_counter, counter, sum / 2, weight / 2}}
   end
 
   @doc """
@@ -98,20 +107,22 @@ defmodule Gossip.Node do
   def handle_info({:pushsum, {s, w}}, {neighbours, fact, receipt_counter, counter, sum, weight}) do
     new_sum = sum + s
     new_weight = weight + w
-    sum_estimate_delta = new_sum/new_weight - sum/weight
-    
-    receipt_counter = if sum_estimate_delta <= :math.pow(10, -10) do
-      receipt_counter + 1
-    else
-      receipt_counter
-    end
-    
-    {new_sum, new_weight} = if receipt_counter < 3 do
-      send(Enum.random(neighbours), {:pushsum, {new_sum/2, new_weight/2}})
-      {new_sum/2, new_weight/2}
-    else
-      {new_sum, new_weight}
-    end
+    sum_estimate_delta = new_sum / new_weight - sum / weight
+
+    receipt_counter =
+      if sum_estimate_delta <= :math.pow(10, -10) do
+        receipt_counter + 1
+      else
+        receipt_counter
+      end
+
+    {new_sum, new_weight} =
+      if receipt_counter < 3 do
+        send(Enum.random(neighbours), {:pushsum, {new_sum / 2, new_weight / 2}})
+        {new_sum / 2, new_weight / 2}
+      else
+        {new_sum, new_weight}
+      end
 
     {:noreply, {neighbours, fact, receipt_counter, counter, new_sum, new_weight}}
   end
@@ -121,11 +132,14 @@ defmodule Gossip.Node do
   Starts a new process to send fact to another random neighbouring node.
   """
   @impl true
-  def handle_info({:DOWN, _ref, :process, _object, _reason}, {neighbours, fact, receipt_counter, counter, sum, weight}) do
+  def handle_info(
+        {:DOWN, _ref, :process, _object, _reason},
+        {neighbours, fact, receipt_counter, counter, sum, weight}
+      ) do
     if counter != 0 do
-
       Process.spawn(fn -> send(Enum.random(neighbours), {:fact, fact}) end, [:monitor])
     end
+
     {:noreply, {neighbours, fact, receipt_counter, counter, sum, weight}}
   end
 
@@ -137,7 +151,11 @@ defmodule Gossip.Node do
   end
 
   @impl true
-  def handle_call({:get_neighbours}, _from, {neighbours, fact, receipt_counter, counter, sum, weight}) do
+  def handle_call(
+        {:get_neighbours},
+        _from,
+        {neighbours, fact, receipt_counter, counter, sum, weight}
+      ) do
     {:reply, neighbours, {neighbours, fact, receipt_counter, counter, sum, weight}}
   end
 

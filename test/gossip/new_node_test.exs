@@ -3,6 +3,7 @@ defmodule Gossip.NewNodeTest do
 
   describe "gossip algorithm" do
   end
+
   describe "pushsum algorithm" do
   end
 end

@@ -20,19 +20,26 @@ defmodule Gossip.Ticker do
   def loop(recipient_pid, tick_interval, current_index) do
     receive do
       :send_tick ->
-        send(recipient_pid, {:tick, current_index}) # send the tick event
-        Process.send_after(self(), :send_tick, tick_interval) # schedule a self event after interval
+        # send the tick event
+        send(recipient_pid, {:tick, current_index})
+        # schedule a self event after interval
+        Process.send_after(self(), :send_tick, tick_interval)
         loop(recipient_pid, tick_interval, current_index + 1)
+
       :terminate ->
-        :ok # terminating
+        # terminating
+        :ok
         # NOTE: we could also optionally wire it up to send a last_tick event when it terminates
         send(recipient_pid, {:last_tick, current_index})
+
       oops ->
-        Logger.error("received unexepcted message #{inspect oops}")
+        Logger.error("received unexepcted message #{inspect(oops)}")
         loop(recipient_pid, tick_interval, current_index + 1)
     end
   end
 
   defp schedule_terminate(_pid, :infinity), do: :ok
-  defp schedule_terminate(ticker_pid, duration), do: Process.send_after(ticker_pid, :terminate, duration)
+
+  defp schedule_terminate(ticker_pid, duration),
+    do: Process.send_after(ticker_pid, :terminate, duration)
 end
