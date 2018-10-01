@@ -1,4 +1,4 @@
-defmodule Gossip.Monitor do
+defmodule Gossip.ConvergenceMonitor do
   use GenServer
   require Logger
 
@@ -11,7 +11,7 @@ defmodule Gossip.Monitor do
     #Logger.debug "Waiting for convergence....."
     num_nodes = Keyword.get(opts, :num_nodes)
     topology = Keyword.get(opts, :topology)
-    {:ok, child_pids} = Gossip.P2PSupervisor.start_children(Gossip.P2PSupervisor, num_nodes, self(), topology)
+    {:ok, child_pids} = Gossip.Supervisor.start_children(Gossip.Supervisor, num_nodes, self(), topology)
     #IO.inspect child_pids
     pid = Enum.random(child_pids)
     send(pid, {:fact, 42, -1, nil})

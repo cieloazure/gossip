@@ -21,7 +21,7 @@ defmodule Gossip.Ticker do
     receive do
       :send_tick ->
         send(recipient_pid, {:tick, current_index}) # send the tick event
-        Process.send_after(self, :send_tick, tick_interval) # schedule a self event after interval
+        Process.send_after(self(), :send_tick, tick_interval) # schedule a self event after interval
         loop(recipient_pid, tick_interval, current_index + 1)
       :terminate ->
         :ok # terminating

@@ -4,7 +4,4 @@ if length(System.argv) != 2 do
 end
 #TODO : Add error checking
 [num_nodes, topology]  = System.argv
-Gossip.Monitor.start_link([num_nodes: String.to_integer(num_nodes), topology: topology])
-#Gossip.P2PSupervisor.start_children(Gossip.P2PSupervisor, String.to_integer(numNodes), topology, algorithm)
-# {t, {:ok, child_pids}} = :timer.tc(Gossip.P2PSupervisor, :start_children, [Gossip.P2PSupervisor, String.to_integer(numNodes), topology, algorithm])
-#
+Gossip.ConvergenceMonitor.start_link([num_nodes: String.to_integer(num_nodes), topology: topology])

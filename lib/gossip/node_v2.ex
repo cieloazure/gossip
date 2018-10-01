@@ -1,4 +1,4 @@
-defmodule Gossip.NewNode do
+defmodule Gossip.NodeV2 do
   use GenServer
   require Logger
 

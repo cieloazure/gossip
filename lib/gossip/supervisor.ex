@@ -1,4 +1,4 @@
-defmodule Gossip.P2PSupervisor do 
+defmodule Gossip.Supervisor do 
   use DynamicSupervisor
   require Logger
 
@@ -13,7 +13,7 @@ defmodule Gossip.P2PSupervisor do
 
   def start_link(arg) do
     Logger.info("starting link")
-    DynamicSupervisor.start_link(__MODULE__, arg, name: Gossip.P2PSupervisor)
+    DynamicSupervisor.start_link(__MODULE__, arg, name: Gossip.Supervisor)
   end
 
   def start_children(supervisor, num_nodes, monitor, topology \\ "full", algorithm \\ "gossip") do
@@ -24,19 +24,18 @@ defmodule Gossip.P2PSupervisor do
 
     child_pids =
       for n <- 1..num_nodes do 
-        {:ok, child_pid} = DynamicSupervisor.start_child(supervisor, {Gossip.NewNode, [node_number: n, monitor: monitor]})
+        {:ok, child_pid} = DynamicSupervisor.start_child(supervisor, {Gossip.NodeV2, [node_number: n, monitor: monitor]})
         child_pid
       end
 
     create_topology(topology, child_pids)
-    # initiate_algorithm(algorithm, child_pids)
-    # send_fact(child_pids, {:fact, "The answer to the question is 42"})
+    initiate_algorithm(algorithm, child_pids)
     {:ok, child_pids}
   end
 
-  def send_fact(child_pids, {:fact, fact}) do
+  def send_fact(child_pids, {:fact, fact, fact_counter, pid}) do
     random_child_pid = Enum.random(child_pids)
-    send(random_child_pid, {:fact, fact})
+    send(random_child_pid, {:fact, fact, fact_counter, pid})
   end
 
   # Callback
@@ -303,8 +302,6 @@ defmodule Gossip.P2PSupervisor do
   defp set_torus_dimensions(n) do
     s = trunc(:math.sqrt(n))
     find_factors(n, s)
-    # Logger.debug(("set_torus_dimensions #{a}, #{b}"))
-
   end
 
   defp find_factors(n, s) do
