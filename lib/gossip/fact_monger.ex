@@ -42,7 +42,6 @@ defmodule Gossip.FactMonger do
         run(neighbours, new_fact, new_fact_counter, sum, weight, our_new_pid, ticker_pid)
 
       {:pushsum, new_sum, new_weight} ->
-
         ticker_pid =
           if fact == -1 do
             start(self())
@@ -51,7 +50,6 @@ defmodule Gossip.FactMonger do
           end
 
         run(neighbours, fact, our_fact_counter, new_sum, new_weight, our_pid, ticker_pid)
-
 
       {:neighbours, new_neighbours} ->
         Logger.debug("Updating neighbours list")

@@ -41,7 +41,10 @@ defmodule Gossip.NodeV2 do
     sum = Keyword.get(opts, :node_number)
     weight = 1
     state = @susceptible
-    fact_monger = spawn(Gossip.FactMonger, :run, [neighbours, fact, fact_counter, sum, weight, self(), nil])
+
+    fact_monger =
+      spawn(Gossip.FactMonger, :run, [neighbours, fact, fact_counter, sum, weight, self(), nil])
+
     monitor = Keyword.get(opts, :monitor)
     {:ok, {neighbours, fact, fact_counter, sum, weight, state, fact_monger, monitor}}
   end
@@ -58,7 +61,8 @@ defmodule Gossip.NodeV2 do
     send(fact_monger, {:neighbours, new_neighbours})
 
     {:noreply,
-     {MapSet.union(neighbours, new_neighbours), fact, fact_counter, sum, weight, state, fact_monger, monitor}}
+     {MapSet.union(neighbours, new_neighbours), fact, fact_counter, sum, weight, state,
+      fact_monger, monitor}}
   end
 
   @impl true
@@ -122,15 +126,15 @@ defmodule Gossip.NodeV2 do
           nil
       end
 
-    {:noreply, {neighbours, resultant_fact, our_fact_counter, sum, weight, state, fact_monger, monitor}}
+    {:noreply,
+     {neighbours, resultant_fact, our_fact_counter, sum, weight, state, fact_monger, monitor}}
   end
 
   @impl true
   def handle_info(
-    {:pushsum, their_sum, their_weight},
-    {neighbours, _fact, our_fact_counter, sum, weight, _state, fact_monger, monitor}
-  ) do
-
+        {:pushsum, their_sum, their_weight},
+        {neighbours, _fact, our_fact_counter, sum, weight, _state, fact_monger, monitor}
+      ) do
     resultant_sum = sum + their_sum
     resultant_weight = weight + their_weight
     # {resultant_sum, resultant_weight, fact_counter} = cond do
@@ -145,28 +149,30 @@ defmodule Gossip.NodeV2 do
     #     {sum + their_sum, weight + their_weight, our_fact_counter + 1}
     # end
 
-    sum_estimate_delta = resultant_sum/resultant_weight + sum/weight
+    sum_estimate_delta = resultant_sum / resultant_weight + sum / weight
 
-    {state, resultant_sum, resultant_weight, fact_counter} = cond do
-      sum_estimate_delta >= :math.pow(10, -10) ->
-        send(fact_monger, {:pushsum, resultant_sum/2, resultant_weight/2})
-        {@infected, resultant_sum/2, resultant_weight/2, our_fact_counter}
+    {state, resultant_sum, resultant_weight, fact_counter} =
+      cond do
+        sum_estimate_delta >= :math.pow(10, -10) ->
+          send(fact_monger, {:pushsum, resultant_sum / 2, resultant_weight / 2})
+          {@infected, resultant_sum / 2, resultant_weight / 2, our_fact_counter}
 
-      sum_estimate_delta < :math.pow(10, -10) ->
-        if our_fact_counter + 1 < 3 do
-          send(fact_monger, {:pushsum, resultant_sum/2, resultant_weight/2})
-          {@infected, resultant_sum/2, resultant_weight/2, our_fact_counter + 1}
-        else
-          send(fact_monger, {:stop, 1})
-          send(monitor, {:convergence_event, self()})
-          {@removed, resultant_sum, resultant_weight, our_fact_counter} 
-        end
-    
-      true ->
-        nil
-    end
+        sum_estimate_delta < :math.pow(10, -10) ->
+          if our_fact_counter + 1 < 3 do
+            send(fact_monger, {:pushsum, resultant_sum / 2, resultant_weight / 2})
+            {@infected, resultant_sum / 2, resultant_weight / 2, our_fact_counter + 1}
+          else
+            send(fact_monger, {:stop, 1})
+            send(monitor, {:convergence_event, self()})
+            {@removed, resultant_sum, resultant_weight, our_fact_counter}
+          end
 
-    {:noreply, {neighbours, 0, fact_counter, resultant_sum, resultant_weight, state, fact_monger, monitor}}
+        true ->
+          nil
+      end
+
+    {:noreply,
+     {neighbours, 0, fact_counter, resultant_sum, resultant_weight, state, fact_monger, monitor}}
   end
 
   @impl true
@@ -175,6 +181,7 @@ defmodule Gossip.NodeV2 do
         _from,
         {neighbours, fact, fact_counter, sum, weight, state, fact_monger, monitor}
       ) do
-    {:reply, neighbours, {neighbours, fact, fact_counter, sum, weight, state, fact_monger, monitor}}
+    {:reply, neighbours,
+     {neighbours, fact, fact_counter, sum, weight, state, fact_monger, monitor}}
   end
 end
