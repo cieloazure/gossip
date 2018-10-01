@@ -4,4 +4,5 @@ if length(System.argv) != 2 do
 end
 #TODO : Add error checking
 [num_nodes, topology]  = System.argv
-Gossip.ConvergenceMonitor.start_link([num_nodes: String.to_integer(num_nodes), topology: topology])
+{:ok, pid} = Gossip.ConvergenceMonitor.start_link([num_nodes: String.to_integer(num_nodes), topology: topology, algorithm: "gossip"])
+Gossip.ConvergenceMonitor.start_simulation(pid)

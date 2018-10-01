@@ -122,4 +122,13 @@ defmodule Gossip.NodeV2 do
 
     {:noreply, {neighbours, resultant_fact, our_fact_counter, state, fact_monger, monitor}}
   end
+
+  @impl true
+  def handle_call(
+        {:get_neighbours},
+        _from,
+        {neighbours, fact, fact_counter, state, fact_monger, monitor}
+      ) do
+    {:reply, neighbours, {neighbours, fact, fact_counter, state, fact_monger, monitor}}
+  end
 end

@@ -6,23 +6,27 @@ defmodule Gossip.ConvergenceMonitor do
     GenServer.start_link(__MODULE__, opts)
   end
 
+  def start_simulation(pid) do
+    GenServer.call(pid, {:start})
+  end
+
   def init(opts) do
-    # IO.puts "Execution status"
-    # Logger.debug "Waiting for convergence....."
     num_nodes = Keyword.get(opts, :num_nodes)
     topology = Keyword.get(opts, :topology)
+    algorithm = Keyword.get(opts, :algorithm)
+    convergence_events = []
+    {:ok, {convergence_events, num_nodes, topology, algorithm}}
+  end
 
+  def handle_call({:start}, _from, {_convergence_events, num_nodes, topology, algorithm} = state) do
     {:ok, child_pids} =
       Gossip.Supervisor.start_children(Gossip.Supervisor, num_nodes, self(), topology)
 
-    # IO.inspect child_pids
-    pid = Enum.random(child_pids)
-    send(pid, {:fact, 42, -1, nil})
-    convergence_events = []
-    {:ok, {convergence_events, num_nodes}}
+    Gossip.Supervisor.initiate_algorithm(child_pids, algorithm)
+    {:reply, :ok, state}
   end
 
-  def handle_info({:convergence_event, pid}, {convergence_events, num_nodes}) do
+  def handle_info({:convergence_event, pid}, {convergence_events, num_nodes, topology, algorithm}) do
     try do
       Logger.info("Convergence of node #{inspect(pid)}")
     rescue
@@ -39,6 +43,6 @@ defmodule Gossip.ConvergenceMonitor do
       ProgressBar.render(len_convergence_events, num_nodes)
     end
 
-    {:noreply, {convergence_events, num_nodes}}
+    {:noreply, {convergence_events, num_nodes, topology, algorithm}}
   end
 end

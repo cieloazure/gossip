@@ -16,7 +16,7 @@ defmodule Gossip.Supervisor do
     DynamicSupervisor.start_link(__MODULE__, arg, name: Gossip.Supervisor)
   end
 
-  def start_children(supervisor, num_nodes, monitor, topology \\ "full", algorithm \\ "gossip") do
+  def start_children(supervisor, num_nodes, monitor, topology \\ @full) do
     Logger.info("Starting children genserver....")
 
     if num_nodes <= 0,
@@ -34,13 +34,15 @@ defmodule Gossip.Supervisor do
       end
 
     create_topology(topology, child_pids)
-    initiate_algorithm(algorithm, child_pids)
     {:ok, child_pids}
   end
 
-  def send_fact(child_pids, {:fact, fact, fact_counter, pid}) do
-    random_child_pid = Enum.random(child_pids)
-    send(random_child_pid, {:fact, fact, fact_counter, pid})
+  def initiate_algorithm(child_pids, algorithm \\ @gossip) do
+    case algorithm do
+      @gossip -> send_fact(child_pids, {:fact, 42, -1, nil})
+      @pushsum -> send(Enum.random(child_pids), {:pushsum})
+      _ -> raise_invalid_algorithm_error()
+    end
   end
 
   # Callback
@@ -64,12 +66,9 @@ defmodule Gossip.Supervisor do
     end
   end
 
-  defp initiate_algorithm(algorithm, child_pids) do
-    case algorithm do
-      @gossip -> send_fact(child_pids, {:fact, 42, -1, nil})
-      @pushsum -> send(Enum.random(child_pids), {:pushsum})
-      _ -> raise_invalid_algorithm_error()
-    end
+  defp send_fact(child_pids, {:fact, fact, fact_counter, pid}) do
+    random_child_pid = Enum.random(child_pids)
+    send(random_child_pid, {:fact, fact, fact_counter, pid})
   end
 
   defp create_full_network(child_pids) do

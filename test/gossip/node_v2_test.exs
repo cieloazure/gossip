@@ -1,4 +1,4 @@
-defmodule Gossip.NewNodeTest do
+defmodule Gossip.NodeV2Test do
   use ExUnit.Case
 
   describe "gossip algorithm" do
