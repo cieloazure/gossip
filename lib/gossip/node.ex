@@ -2,9 +2,7 @@ defmodule Gossip.Node do
   use GenServer
 
   @counter_limit 10
-  @message_interval 2
-
-  @status "limit reached. Shutting Transmitting"
+  @message_interval 5
 
   # Client
   def start_link(opts) do
@@ -38,10 +36,10 @@ defmodule Gossip.Node do
     sum = Keyword.get(opts, :node_number)
     weight = 1
     fact = ""
-    receipt_counter = 0
+    fact_counter = 0
     counter = 0
     neighbours = MapSet.new([])
-    {:ok, {neighbours, fact, receipt_counter, counter, sum, weight}}
+    {:ok, {neighbours, fact, fact_counter, counter, sum, weight}}
   end
 
   @impl true
@@ -50,31 +48,59 @@ defmodule Gossip.Node do
 
   Adds new_neighbours to the neighbours MapSet of the node.
   """
-  def handle_cast({:add_new_neighbours, new_neighbours}, {neighbours, fact, receipt_counter, _counter, sum, weight}) do
+  def handle_cast({:add_new_neighbours, new_neighbours}, {neighbours, fact, fact_counter, _counter, sum, weight}) do
     new_neighbours = if !is_map(new_neighbours), do: MapSet.new(new_neighbours), else: new_neighbours
-    {:noreply, {MapSet.union(neighbours,new_neighbours), fact, receipt_counter, MapSet.size(MapSet.union(neighbours,new_neighbours)), sum, weight}}
+    {:noreply, {MapSet.union(neighbours,new_neighbours), fact, fact_counter, MapSet.size(MapSet.union(neighbours,new_neighbours)), sum, weight}}
   end
 
   @doc """
   Callback to handle messages of the type '{:fact, fact}'
 
-  This Callback is responsible for receiving gossip messages and updating receipt_counter.
-  Also initiates message transmission if receipt_counter == 1.
+  This Callback is responsible for receiving gossip messages and updating fact_counter.
+  Also initiates message transmission if fact_counter == 1.
   """
   @impl true
-  def handle_info({:fact, fact}, {neighbours, _fact, receipt_counter, counter, sum, weight}) do
-    receipt_counter = receipt_counter + 1
+  def handle_info({:fact, their_fact, their_fact_counter, their_pid}, {neighbours, my_fact, my_fact_counter, counter, sum, weight}) do
+    
+    fact = if !is_nil(their_fact) do
+      cond do
+        their_fact_counter >= my_fact_counter ->
+          their_fact
 
-    cond do
-      receipt_counter == @counter_limit ->
-        # IO.puts("#{sum} stopping")
-        send_status(neighbours)
-      receipt_counter == 1 ->
-        Process.spawn(fn -> send(Enum.random(neighbours), {:fact, fact}) end, [:monitor])
-      true -> nil
+        their_fact_counter < my_fact_counter ->
+          send(their_pid, {:fact, my_fact, my_fact_counter, self()})
+          my_fact
+
+        true ->
+          their_fact
+      end
+    else
+      their_fact
     end
 
-    {:noreply, {neighbours, fact, receipt_counter, counter, sum, weight}}
+    my_fact_counter = my_fact_counter + 1
+
+    if my_fact_counter == 1, do:
+        Process.spawn(fn -> send(Enum.random(neighbours), {:fact, fact, my_fact_counter, self()}) end, [:monitor])
+
+    {:noreply, {neighbours, fact, my_fact_counter, counter, sum, weight}}
+  end
+
+  @doc """
+  Callback to handle down message from monitored process.
+  Starts a new process to send fact to another random neighbouring node.
+  """
+  @impl true
+  def handle_info({:DOWN, _ref, :process, _object, _reason}, {neighbours, fact, fact_counter, counter, sum, weight}) do
+    if fact_counter < @counter_limit do
+
+      Process.spawn(fn -> 
+        # Process.sleep(@message_interval)
+        send(Enum.random(neighbours), {:fact, fact, fact_counter, self()})
+        send(self(), {:fact}) 
+      end, [:monitor])
+    end
+    {:noreply, {neighbours, fact, fact_counter, counter, sum, weight}}
   end
 
   @doc """
@@ -83,9 +109,9 @@ defmodule Gossip.Node do
   This Callback accepts the initial message for pushsum from the Supervisor.
   """
   @impl true
-  def handle_info({:pushsum}, {neighbours, fact, receipt_counter, counter, sum, weight}) do
+  def handle_info({:pushsum}, {neighbours, fact, fact_counter, counter, sum, weight}) do
     send(Enum.random(neighbours), {:pushsum, {sum/2, weight/2}})
-    {:noreply, {neighbours, fact, receipt_counter, counter, sum/2, weight/2}}
+    {:noreply, {neighbours, fact, fact_counter, counter, sum/2, weight/2}}
   end
 
   @doc """
@@ -95,56 +121,30 @@ defmodule Gossip.Node do
   and continues by transmitting pushsum message to a random neighbouring node.
   """
   @impl true
-  def handle_info({:pushsum, {s, w}}, {neighbours, fact, receipt_counter, counter, sum, weight}) do
+  def handle_info({:pushsum, {s, w}}, {neighbours, fact, fact_counter, counter, sum, weight}) do
     new_sum = sum + s
     new_weight = weight + w
     sum_estimate_delta = new_sum/new_weight - sum/weight
     
-    receipt_counter = if sum_estimate_delta <= :math.pow(10, -10) do
-      receipt_counter + 1
+    fact_counter = if sum_estimate_delta <= :math.pow(10, -10) do
+      fact_counter + 1
     else
-      receipt_counter
+      fact_counter
     end
     
-    {new_sum, new_weight} = if receipt_counter < @counter_limit do
+    {new_sum, new_weight} = if fact_counter < @counter_limit do
       send(Enum.random(neighbours), {:pushsum, {new_sum/2, new_weight/2}})
       {new_sum/2, new_weight/2}
     else
       {new_sum, new_weight}
     end
 
-    {:noreply, {neighbours, fact, receipt_counter, counter, new_sum, new_weight}}
-  end
-
-  @doc """
-  Callback to handle down message from monitored process.
-  Starts a new process to send fact to another random neighbouring node.
-  """
-  @impl true
-  def handle_info({:DOWN, _ref, :process, _object, _reason}, {neighbours, fact, receipt_counter, counter, sum, weight}) do
-    if counter != 0 do
-
-      Process.spawn(fn -> 
-        Process.sleep(@message_interval)
-        send(Enum.random(neighbours), {:fact, fact}) 
-      end, [:monitor])
-    end
-    {:noreply, {neighbours, fact, receipt_counter, counter, sum, weight}}
+    {:noreply, {neighbours, fact, fact_counter, counter, new_sum, new_weight}}
   end
 
   @impl true
-  def handle_info({:status, _status}, {neighbours, fact, receipt_counter, counter, sum, weight}) do
-    counter = counter - 1
-    {:noreply, {neighbours, fact, receipt_counter, counter, sum, weight}}
+  def handle_call({:get_neighbours}, _from, {neighbours, fact, fact_counter, counter, sum, weight}) do
+    {:reply, neighbours, {neighbours, fact, fact_counter, counter, sum, weight}}
   end
 
-  @impl true
-  def handle_call({:get_neighbours}, _from, {neighbours, fact, receipt_counter, counter, sum, weight}) do
-    {:reply, neighbours, {neighbours, fact, receipt_counter, counter, sum, weight}}
-  end
-
-  # Private Functions
-  defp send_status(neighbours) do
-    Enum.map(neighbours, fn neighbour -> send(neighbour, {:status, @status}) end)
-  end
 end
