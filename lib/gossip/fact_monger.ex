@@ -1,6 +1,6 @@
 defmodule Gossip.FactMonger do
   require Logger
-  @mongering_interval 5000
+  @mongering_interval 50
 
   def start(pid) do
     Gossip.Ticker.start(pid, @mongering_interval)

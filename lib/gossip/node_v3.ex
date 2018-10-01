@@ -59,7 +59,7 @@ defmodule Gossip.NodeV3 do
 
   @impl true
   def handle_info(
-    {:pushsum, their_sum, their_weight, _their_round_counter, their_pid},
+    {:pushsum, their_sum, their_weight, their_round_counter, their_pid},
     {neighbours, our_sum, our_weight, our_round_counter, our_state, our_fact_monger, monitor, our_most_recent_actors_ratio}
   ) do
 
@@ -77,9 +77,27 @@ defmodule Gossip.NodeV3 do
       #IO.puts("weight in #{inspect(self())} is #{their_weight}")
       #IO.puts "Their ratio is #{inspect(their_sum/their_weight)}"
 
-      our_round_counter = our_round_counter + 1
-      our_sum = our_sum + their_sum
-      our_weight = our_weight + their_weight
+      {our_sum, our_weight, our_round_counter} = cond do
+          their_round_counter == our_round_counter ->
+            our_round_counter = our_round_counter + 1
+            our_sum = our_sum + their_sum
+            our_weight = our_weight + their_weight
+            {our_sum, our_weight, our_round_counter}
+
+          their_round_counter > our_round_counter ->
+            our_round_counter = our_round_counter + 1
+            our_sum = our_sum + their_sum
+            our_weight = our_weight + their_weight
+            {our_sum, our_weight, our_round_counter}
+
+          their_round_counter < our_round_counter ->
+            send(their_pid, {:pushsum, our_sum / 2, our_weight / 2, our_round_counter, self()})
+            {our_sum, our_weight, our_round_counter}
+
+          true ->
+            {their_sum, their_weight, their_round_counter}
+        end
+
 
       new_ratio = our_sum / our_weight
       #IO.puts("sum in #{inspect(self())} is #{our_sum}")
@@ -91,7 +109,7 @@ defmodule Gossip.NodeV3 do
         #IO.puts "Still some nil values present"
         new_ratio
       else
-        if abs(List.last(our_most_recent_actors_ratio) - new_ratio) > :math.pow(10, -2) do
+        if abs(List.last(our_most_recent_actors_ratio) - new_ratio) > :math.pow(10, -10) do
           # not reached convergence yet, put new_ratio in
           # most_recent_actors_ratio
           #IO.puts "Not reached convergence yet for #{inspect(self())}"
@@ -127,7 +145,8 @@ defmodule Gossip.NodeV3 do
 
         if abs(our_ratio - their_ratio) > :math.pow(10, -2) do
           IO.puts "--------Sending from Converged to non converged------------"
-          #send(their_pid, {:pushsum, our_sum / 2, our_weight / 2, our_round_counter, self()})
+          send(their_pid, {:pushsum, our_sum / 2, our_weight / 2, our_round_counter, self()})
+          send(self(), {:update_values, our_sum / 2, our_weight / 2})
         else
           IO.puts "---------Not sending! Both have converged------------"
         end
