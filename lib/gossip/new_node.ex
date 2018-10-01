@@ -81,10 +81,6 @@ defmodule Gossip.NewNode do
 
     #IO.puts "Resultant fact is #{resultant_fact}"
 
-    # update the fact counter
-    # our_fact_counter = our_fact_counter + 1
-    #IO.inspect our_fact_counter
-
     state = cond do
 
       our_fact_counter == 1 -> 

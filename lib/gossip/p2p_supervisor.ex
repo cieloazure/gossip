@@ -2,6 +2,15 @@ defmodule Gossip.P2PSupervisor do
   use DynamicSupervisor
   require Logger
 
+  @full "full"
+  @threeD "3d"
+  @rand2D "rand2d"
+  @torrus "torrus"
+  @line "line"
+  @imperfect2D "imp2d"
+  @gossip "gossip"
+  @pushsum "pushsum"
+
   def start_link(arg) do
     Logger.info("starting link")
     DynamicSupervisor.start_link(__MODULE__, arg, name: Gossip.P2PSupervisor)
@@ -40,21 +49,21 @@ defmodule Gossip.P2PSupervisor do
   # Private functions
   # TODO: Implement topology functions
   defp create_topology(topology, child_pids) do
-    case topology do
-      "full" -> create_full_network(child_pids)
-      "3D" -> create_3d_network(child_pids)
-      "rand2D" -> create_rand_2d_network(child_pids)
-      "torrus" -> create_torrus_network(child_pids)
-      "line" -> create_line_network(child_pids)
-      "imp2D" -> create_imperfect_line_2d_network(child_pids)
+    case String.downcase(topology) do
+      @full -> create_full_network(child_pids)
+      @threeD -> create_3d_network(child_pids)
+      @rand2D -> create_rand_2d_network(child_pids)
+      @torrus -> create_torrus_network(child_pids)
+      @line -> create_line_network(child_pids)
+      @imperfect2D -> create_imperfect_line_2d_network(child_pids)
       _ -> raise_invalid_topology_error(child_pids)
     end
   end
 
   defp initiate_algorithm(algorithm, child_pids) do
     case algorithm do
-      "gossip" -> send_fact(child_pids, {:fact, 42})
-      "pushsum" -> send(Enum.random(child_pids), {:pushsum})
+      @gossip -> send_fact(child_pids, {:fact, 42, -1, nil})
+      @pushsum -> send(Enum.random(child_pids), {:pushsum})
       _ -> raise_invalid_algorithm_error()
     end
   end
@@ -167,6 +176,7 @@ defmodule Gossip.P2PSupervisor do
     end)
   end
 
+  # Helper methods for private functions
   defp raise_invalid_topology_error(_child_pids) do
     Logger.info("raising invalid topology error.....")
     raise ArgumentError, "topology(argument 3) is invalid"
