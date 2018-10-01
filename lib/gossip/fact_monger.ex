@@ -16,7 +16,7 @@ defmodule Gossip.FactMonger do
         Logger.debug(inspect(message))
         Logger.debug(inspect(neighbours))
         Logger.debug("Sending fact to one of neighbour: #{fact}")
-        send(Enum.random(neighbours), {:fact, fact, our_fact_counter, our_pid})
+        if !is_nil(neighbours) and !Enum.empty?(neighbours), do: send(Enum.random(neighbours), {:fact, fact, our_fact_counter, our_pid})
         run(neighbours, fact, our_fact_counter, our_pid, ticker_pid)
 
       {:last_tick, _index} = message ->
