@@ -24,7 +24,7 @@ defmodule Gossip.ConvergenceMonitor do
         {convergence_events, num_nodes, topology, algorithm, old_child_pids, _report_pid}
       ) do
     {:ok, child_pids} =
-      Gossip.Supervisor.start_children(Gossip.Supervisor, num_nodes, self(), topology)
+      Gossip.Supervisor.start_children(Gossip.Supervisor, num_nodes, self(), topology, algorithm)
 
     Gossip.Supervisor.initiate_algorithm(child_pids, algorithm)
     new_child_pids = old_child_pids ++ child_pids
@@ -41,23 +41,25 @@ defmodule Gossip.ConvergenceMonitor do
       RuntimeError -> IO.puts("Convergence of node #{inspect(pid)}")
     end
 
-    convergence_events = if !Enum.member?(convergence_events, pid) do
-      [pid | convergence_events]
-    else
-      convergence_events
-    end
+    convergence_events =
+      if !Enum.member?(convergence_events, pid) do
+        [pid | convergence_events]
+      else
+        convergence_events
+      end
+
     len_convergence_events = length(convergence_events)
 
     ProgressBar.render(len_convergence_events, num_nodes)
-    if len_convergence_events == num_nodes do
 
-      #IO.inspect(
-        #Enum.map(child_pids, fn pid ->
-          #{_, fact, count, status, _, _} = :sys.get_state(pid)
-          #{pid, fact, count, status}
-        #end),
-        #limit: :infinity
-      #)
+    if len_convergence_events == num_nodes do
+      # IO.inspect(
+      # Enum.map(child_pids, fn pid ->
+      # {_, fact, count, status, _, _} = :sys.get_state(pid)
+      # {pid, fact, count, status}
+      # end),
+      # limit: :infinity
+      # )
 
       send(report_pid, {:convergence_reached, true})
     end

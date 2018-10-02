@@ -16,7 +16,7 @@ defmodule Gossip.Supervisor do
     DynamicSupervisor.start_link(__MODULE__, arg, name: Gossip.Supervisor)
   end
 
-  def start_children(supervisor, num_nodes, monitor, topology \\ @full) do
+  def start_children(supervisor, num_nodes, monitor, topology \\ @full, algorithm \\ @gossip) do
     Logger.info("Starting children genserver....")
 
     if num_nodes <= 0,
@@ -25,10 +25,19 @@ defmodule Gossip.Supervisor do
     child_pids =
       for n <- 1..num_nodes do
         {:ok, child_pid} =
-          DynamicSupervisor.start_child(
-            supervisor,
-            {Gossip.NodeV3, [node_number: n, monitor: monitor]}
-          )
+          case algorithm do
+            @pushsum ->
+              DynamicSupervisor.start_child(
+                supervisor,
+                {Gossip.NodeV3, [node_number: n, monitor: monitor]}
+              )
+
+            @gossip ->
+              DynamicSupervisor.start_child(
+                supervisor,
+                {Gossip.NodeV2, [node_number: n, monitor: monitor]}
+              )
+          end
 
         child_pid
       end
@@ -40,7 +49,7 @@ defmodule Gossip.Supervisor do
   def initiate_algorithm(child_pids, algorithm \\ @gossip) do
     case algorithm do
       @gossip -> send_fact(child_pids, {:fact, 42, -1, nil})
-      @pushsum -> send(Enum.random(child_pids), {:pushsum})
+      @pushsum -> send(Enum.random(child_pids), {:pushsum, -1, -1, -1, nil})
       _ -> raise_invalid_algorithm_error()
     end
   end
@@ -53,7 +62,6 @@ defmodule Gossip.Supervisor do
   end
 
   # Private functions
-  # TODO: Implement topology functions
   defp create_topology(topology, child_pids) do
     case String.downcase(topology) do
       @full -> create_full_network(child_pids)
