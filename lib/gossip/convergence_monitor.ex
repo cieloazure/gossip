@@ -7,7 +7,7 @@ defmodule Gossip.ConvergenceMonitor do
   end
 
   def start_simulation(pid) do
-    GenServer.call(pid, {:start})
+    GenServer.call(pid, {:start}, :infinity)
   end
 
   def init(opts) do
@@ -50,7 +50,7 @@ defmodule Gossip.ConvergenceMonitor do
 
     len_convergence_events = length(convergence_events)
 
-    ProgressBar.render(len_convergence_events, num_nodes)
+    # ProgressBar.render(len_convergence_events, num_nodes)
 
     if len_convergence_events == num_nodes do
       # IO.inspect(
