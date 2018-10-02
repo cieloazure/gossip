@@ -1,15 +1,11 @@
-defmodule Gossip.NodeV2Test do
+defmodule Gossip.NodeV3Test do
   use ExUnit.Case
 
-  describe "gossip algorithm:" do
-    test "full topology with 100 nodes" do
-      {:ok, pid} =
-        Gossip.ConvergenceMonitor.start_link(
-          num_nodes: 100,
-          topology: "full",
-          algorithm: "gossip"
-        )
+  describe "pushsum algorithm:" do
 
+    test "full topology with 100 nodes" do
+
+      {:ok, pid} = Gossip.ConvergenceMonitor.start_link([num_nodes: 100, topology: "full", algorithm: "pushsum"])
       Gossip.ConvergenceMonitor.start_simulation(pid)
 
       receive do
@@ -17,7 +13,7 @@ defmodule Gossip.NodeV2Test do
           IO.puts("Execution complete! Convergence reached: #{status}")
           assert status
       after
-        5000 ->
+        20000 ->
           flunk("Convergence not reached")
       end
     end
@@ -27,7 +23,7 @@ defmodule Gossip.NodeV2Test do
         Gossip.ConvergenceMonitor.start_link(
           num_nodes: 100,
           topology: "line",
-          algorithm: "gossip"
+          algorithm: "pushsum"
         )
 
       Gossip.ConvergenceMonitor.start_simulation(pid)
@@ -37,7 +33,7 @@ defmodule Gossip.NodeV2Test do
           IO.puts("Execution complete! Convergence reached: #{status}")
           assert status
       after
-        5000 ->
+        20000 ->
           flunk("Convergence not reached")
       end
     end
@@ -47,7 +43,7 @@ defmodule Gossip.NodeV2Test do
         Gossip.ConvergenceMonitor.start_link(
           num_nodes: 100,
           topology: "imp2d",
-          algorithm: "gossip"
+          algorithm: "pushsum"
         )
 
       Gossip.ConvergenceMonitor.start_simulation(pid)
@@ -57,7 +53,7 @@ defmodule Gossip.NodeV2Test do
           IO.puts("Execution complete! Convergence reached: #{status}")
           assert status
       after
-        5000 ->
+        20000 ->
           flunk("Convergence not reached")
       end
     end
@@ -67,7 +63,7 @@ defmodule Gossip.NodeV2Test do
         Gossip.ConvergenceMonitor.start_link(
           num_nodes: 100,
           topology: "rand2d",
-          algorithm: "gossip"
+          algorithm: "pushsum"
         )
 
       Gossip.ConvergenceMonitor.start_simulation(pid)
@@ -77,14 +73,14 @@ defmodule Gossip.NodeV2Test do
           IO.puts("Execution complete! Convergence reached: #{status}")
           assert status
       after
-        5000 ->
+        20000 ->
           flunk("Convergence not reached")
       end
     end
 
     test "3d topology with 100 nodes" do
       {:ok, pid} =
-        Gossip.ConvergenceMonitor.start_link(num_nodes: 100, topology: "3d", algorithm: "gossip")
+        Gossip.ConvergenceMonitor.start_link(num_nodes: 100, topology: "3d", algorithm: "pushsum")
 
       Gossip.ConvergenceMonitor.start_simulation(pid)
 
@@ -93,7 +89,7 @@ defmodule Gossip.NodeV2Test do
           IO.puts("Execution complete! Convergence reached: #{status}")
           assert status
       after
-        5000 ->
+        20000 ->
           flunk("Convergence not reached")
       end
     end
@@ -103,7 +99,7 @@ defmodule Gossip.NodeV2Test do
         Gossip.ConvergenceMonitor.start_link(
           num_nodes: 100,
           topology: "torrus",
-          algorithm: "gossip"
+          algorithm: "pushsum"
         )
 
       Gossip.ConvergenceMonitor.start_simulation(pid)
@@ -113,10 +109,9 @@ defmodule Gossip.NodeV2Test do
           IO.puts("Execution complete! Convergence reached: #{status}")
           assert status
       after
-        5000 ->
+        20000 ->
           flunk("Convergence not reached")
       end
     end
   end
-
 end
