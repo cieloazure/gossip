@@ -13,7 +13,7 @@ defmodule Gossip.NodeV3Test do
           IO.puts("Execution complete! Convergence reached: #{status}")
           assert status
       after
-        50000 ->
+        15000 ->
           flunk("Convergence not reached")
       end
     end
@@ -33,7 +33,7 @@ defmodule Gossip.NodeV3Test do
           IO.puts("Execution complete! Convergence reached: #{status}")
           assert status
       after
-        50000 ->
+        15000 ->
           flunk("Convergence not reached")
       end
     end
@@ -53,7 +53,7 @@ defmodule Gossip.NodeV3Test do
           IO.puts("Execution complete! Convergence reached: #{status}")
           assert status
       after
-        50000 ->
+        15000 ->
           flunk("Convergence not reached")
       end
     end
@@ -73,7 +73,7 @@ defmodule Gossip.NodeV3Test do
           IO.puts("Execution complete! Convergence reached: #{status}")
           assert status
       after
-        50000 ->
+        15000 ->
           flunk("Convergence not reached")
       end
     end
@@ -89,7 +89,7 @@ defmodule Gossip.NodeV3Test do
           IO.puts("Execution complete! Convergence reached: #{status}")
           assert status
       after
-        50000 ->
+        15000 ->
           flunk("Convergence not reached")
       end
     end
@@ -109,7 +109,7 @@ defmodule Gossip.NodeV3Test do
           IO.puts("Execution complete! Convergence reached: #{status}")
           assert status
       after
-        50000 ->
+        15000 ->
           flunk("Convergence not reached")
       end
     end
