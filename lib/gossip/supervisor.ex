@@ -1,33 +1,57 @@
-defmodule Gossip.P2PSupervisor do 
+defmodule Gossip.Supervisor do
   use DynamicSupervisor
   require Logger
 
+  @full "full"
+  @threeD "3d"
+  @rand2D "rand2d"
+  @torrus "torrus"
+  @line "line"
+  @imperfect2D "imp2d"
+  @gossip "gossip"
+  @pushsum "pushsum"
+
   def start_link(arg) do
     Logger.info("starting link")
-    DynamicSupervisor.start_link(__MODULE__, arg, name: Gossip.P2PSupervisor)
+    DynamicSupervisor.start_link(__MODULE__, arg, name: Gossip.Supervisor)
   end
 
-  def start_children(supervisor, num_nodes, topology \\ "full", algorithm \\ "gossip") do
+  def start_children(supervisor, num_nodes, monitor, topology \\ @full, algorithm \\ @gossip) do
     Logger.info("Starting children genserver....")
 
     if num_nodes <= 0,
       do: raise(ArgumentError, message: "num_nodes(argument 2) should be greater than 0")
 
     child_pids =
-      for n <- 1..num_nodes do 
-        {:ok, child_pid} = DynamicSupervisor.start_child(supervisor, {Gossip.Node, [node_number: n]})
+      for n <- 1..num_nodes do
+        {:ok, child_pid} =
+          case algorithm do
+            @pushsum ->
+              DynamicSupervisor.start_child(
+                supervisor,
+                {Gossip.NodeV3, [node_number: n, monitor: monitor]}
+              )
+
+            @gossip ->
+              DynamicSupervisor.start_child(
+                supervisor,
+                {Gossip.NodeV2, [node_number: n, monitor: monitor]}
+              )
+          end
+
         child_pid
       end
 
     create_topology(topology, child_pids)
-    initiate_algorithm(algorithm, child_pids)
-    # send_fact(child_pids, {:fact, "The answer to the question is 42"})
     {:ok, child_pids}
   end
 
-  def send_fact(child_pids, {:fact, fact}) do
-    random_child_pid = Enum.random(child_pids)
-    send(random_child_pid, {:fact, fact})
+  def initiate_algorithm(child_pids, algorithm \\ @gossip) do
+    case algorithm do
+      @gossip -> send_fact(child_pids, {:fact, 42, -1, nil})
+      @pushsum -> send(Enum.random(child_pids), {:pushsum, -1, -1, -1, nil})
+      _ -> raise_invalid_algorithm_error()
+    end
   end
 
   # Callback
@@ -38,31 +62,27 @@ defmodule Gossip.P2PSupervisor do
   end
 
   # Private functions
-  # TODO: Implement topology functions
   defp create_topology(topology, child_pids) do
-    case topology do
-      "full" -> create_full_network(child_pids)
-      "3D" -> create_3d_network(child_pids)
-      "rand2D" -> create_rand_2d_network(child_pids)
-      "torrus" -> create_torrus_network(child_pids)
-      "line" -> create_line_network(child_pids)
-      "imp2D" -> create_imperfect_line_2d_network(child_pids)
+    case String.downcase(topology) do
+      @full -> create_full_network(child_pids)
+      @threeD -> create_3d_network(child_pids)
+      @rand2D -> create_rand_2d_network(child_pids)
+      @torrus -> create_torrus_network(child_pids)
+      @line -> create_line_network(child_pids)
+      @imperfect2D -> create_imperfect_line_2d_network(child_pids)
       _ -> raise_invalid_topology_error(child_pids)
     end
   end
 
-  defp initiate_algorithm(algorithm, child_pids) do
-    case algorithm do
-      "gossip" -> send_fact(child_pids, {:fact, "The answer to the question is 42"})
-      "pushsum" -> send(Enum.random(child_pids), {:pushsum})
-      _ -> raise_invalid_algorithm_error()
-    end
+  defp send_fact(child_pids, {:fact, fact, fact_counter, pid}) do
+    random_child_pid = Enum.random(child_pids)
+    send(random_child_pid, {:fact, fact, fact_counter, pid})
   end
 
   defp create_full_network(child_pids) do
     Logger.info("creating full network...")
 
-    Enum.each(child_pids, fn child_pid -> 
+    Enum.each(child_pids, fn child_pid ->
       new_neighbours = MapSet.difference(MapSet.new(child_pids), MapSet.new([child_pid]))
       Gossip.Node.add_new_neighbours(child_pid, new_neighbours)
     end)
@@ -115,45 +135,50 @@ defmodule Gossip.P2PSupervisor do
   end
 
   defp create_torrus_network(child_pids) do
-    # IO.puts "creating torus network..."
+    Logger.debug("creating torus network...")
     n = length(child_pids)
     {rows, columns} = set_torus_dimensions(n)
-    # IO.puts("create_torrus_network #{rows}, #{columns}")
-    Enum.each(0..n - 2, fn index -> 
+    Logger.debug("create_torrus_network #{rows}, #{columns}")
+
+    Enum.each(0..(n - 2), fn index ->
       new_neighbours = []
-      # IO.puts("new_neighbours #{index}")
-      
+      Logger.debug("new_neighbours #{index}")
+
       # horizontally closed ends
-      new_neighbours = if rem(index, columns) == 0 do
-        List.insert_at(new_neighbours, 0, Enum.at(child_pids, index + columns - 1))
+      new_neighbours =
+        if rem(index, columns) == 0 do
+          List.insert_at(new_neighbours, 0, Enum.at(child_pids, index + columns - 1))
         else
-          new_neighbours 
-      end
-      
+          new_neighbours
+        end
+
       # vertically closed ends
-      new_neighbours = if index < columns do
-        List.insert_at(new_neighbours, 0, Enum.at(child_pids, columns * (rows - 1) + index))
+      new_neighbours =
+        if index < columns do
+          List.insert_at(new_neighbours, 0, Enum.at(child_pids, columns * (rows - 1) + index))
         else
           new_neighbours
-      end
-      
+        end
+
       # horizontal connection
-      new_neighbours = if rem(index, columns) != columns - 1 do
-        List.insert_at(new_neighbours, 0, Enum.at(child_pids, index + 1))
+      new_neighbours =
+        if rem(index, columns) != columns - 1 do
+          List.insert_at(new_neighbours, 0, Enum.at(child_pids, index + 1))
         else
           new_neighbours
-      end
-      
+        end
+
       # vertical connection
-      new_neighbours = if index < columns * (rows - 1) do
-        List.insert_at(new_neighbours, 0, Enum.at(child_pids, index + columns))
+      new_neighbours =
+        if index < columns * (rows - 1) do
+          List.insert_at(new_neighbours, 0, Enum.at(child_pids, index + columns))
         else
           new_neighbours
-      end
-      
+        end
+
       # IO.inspect(new_neighbours)
 
-      Gossip.Node.add_new_neighbours_dual(Enum.at(child_pids, index), new_neighbours)     
+      Gossip.Node.add_new_neighbours_dual(Enum.at(child_pids, index), new_neighbours)
     end)
   end
 
@@ -167,6 +192,7 @@ defmodule Gossip.P2PSupervisor do
     end)
   end
 
+  # Helper methods for private functions
   defp raise_invalid_topology_error(_child_pids) do
     Logger.info("raising invalid topology error.....")
     raise ArgumentError, "topology(argument 3) is invalid"
@@ -293,15 +319,12 @@ defmodule Gossip.P2PSupervisor do
   defp set_torus_dimensions(n) do
     s = trunc(:math.sqrt(n))
     find_factors(n, s)
-    # IO.puts("set_torus_dimensions #{a}, #{b}")
-
   end
 
   defp find_factors(n, s) do
     cond do
-      rem(n, s) == 0 -> {s, trunc(n/s)}
-      true -> if s-1 != 0, do: find_factors(n, s-1)
+      rem(n, s) == 0 -> {s, trunc(n / s)}
+      true -> if s - 1 != 0, do: find_factors(n, s - 1)
     end
   end
-
 end
