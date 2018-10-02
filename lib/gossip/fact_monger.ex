@@ -1,16 +1,33 @@
 defmodule Gossip.FactMonger do
+  #TODO: Change Name to Gossip.PeriodicDisseminator
+  @moduledoc """
+  This module is reponsible for disseminating periodic messages to the random neighbour of the node
+  Each Node will have a sibling FactMonger process which will help in periodic spreading of message
+  Periodic ticks are provided by Gossip.Ticker
+  """
   require Logger
   @mongering_interval 10
 
+  @doc """
+  Start the ticker for the fact monger
+  Will keep receiving tick events of the form `{:tick, _index}` at every `@mongering_interval` time
+  """
   def start(pid) do
     Gossip.Ticker.start(pid, @mongering_interval)
   end
 
+  @doc """
+  Stop the ticker for the fact monger
+  Will send a event of `{:last_tick, index}` to the fact monger
+  """
   def stop(pid) do
     Gossip.Ticker.stop(pid)
   end
 
-  # Run for Gossip
+  @doc """
+  Runner for Gossip algorithm
+  Will run alongside `Gossip.NodeV2` for `gossip` algorithm
+  """
   def run(neighbours, fact, our_fact_counter, our_pid, ticker_pid) do
     receive do
       {:tick, _index} = message ->
@@ -57,7 +74,10 @@ defmodule Gossip.FactMonger do
     end
   end
 
-  # Run for push sum
+  @doc """
+   Runner for pushsum algorithm
+   Will run alongside `Gossip.NodeV3` for `pushsum` algorithm
+  """
   def run(neighbours, our_sum, our_weight, our_round_counter, our_pid, ticker_pid) do
     Logger.debug("Starting fact monger")
 

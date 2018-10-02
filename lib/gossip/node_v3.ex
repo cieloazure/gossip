@@ -1,32 +1,55 @@
 defmodule Gossip.NodeV3 do
+  @moduledoc """
+    A GenServer Node to handle the states of pushsum algorithm. Has state variables specific to pushsum algorithm
+  """
   use GenServer
   require Logger
 
   @susceptible "susceptible"
 
-  # Client
+  # Client API
+  @doc """
+    Starts the GenServer.NodeV3
+  """
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts)
   end
 
+  @doc """
+    Adds multiple neighbours to this node 
+  """
   def add_new_neighbours(pid, new_neighbours) do
     GenServer.cast(pid, {:add_new_neighbours, new_neighbours})
   end
 
+  @doc """
+    Adds a new neighbour to this node
+  """
   def add_new_neighbour(pid, new_neighbour) do
     new_neighbour = MapSet.new([new_neighbour])
     GenServer.cast(pid, {:add_new_neighbours, new_neighbour})
   end
 
+  @doc """
+    Adds a new neighbour with a two way connection
+  """
   def add_new_neighbours_dual(pid, new_neighbours) do
     add_new_neighbours(pid, new_neighbours)
     Enum.each(new_neighbours, fn new_neighbour -> add_new_neighbour(new_neighbour, pid) end)
   end
 
+  @doc """
+    Returns a list of neighbours for a node
+  """
   def get_neighbours(pid) do
     GenServer.call(pid, {:get_neighbours})
   end
 
+  # Server Callbacks
+  
+  @doc """
+    Initiates the state of the Gossip.NodeV2
+  """
   @impl true
   def init(opts) do
     neighbours = MapSet.new([])
@@ -46,6 +69,10 @@ defmodule Gossip.NodeV3 do
       most_recent_actors_ratio}}
   end
 
+
+  @doc """
+    Callback to handle updating the values(state) for this node
+  """
   @impl true
   def handle_info(
         {:update_values, new_sum, new_weight},
@@ -61,6 +88,9 @@ defmodule Gossip.NodeV3 do
       our_most_recent_actors_ratio}}
   end
 
+  @doc """
+    Callback to handle the pushsum algorithm logic. Has the logic for sending periodic updates through fact monger and push-pull resoltion of nodes
+  """
   @impl true
   def handle_info(
         {:pushsum, their_sum, their_weight, their_round_counter, their_pid},
@@ -168,6 +198,9 @@ defmodule Gossip.NodeV3 do
     end
   end
 
+  @doc """
+    Callback to handle adding neighbours to the node
+  """
   @impl true
   def handle_cast(
         {:add_new_neighbours, new_neighbours},
@@ -185,6 +218,9 @@ defmodule Gossip.NodeV3 do
       monitor, most_recent_actors_ratio}}
   end
 
+  @doc """
+    Callback to handle getting neighbours for this node
+  """
   @impl true
   def handle_call(
         {:get_neighbours},

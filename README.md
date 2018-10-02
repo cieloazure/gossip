@@ -62,7 +62,8 @@ Following implementations are working
     * Torrus topology
     * 3d topology
 
-Following implementations have bugs to be sorted out in future release
+Following implementations have bugs to be sorted out in future release(test
+cases should fail for only these two implementations)
 1. Gossip algorithm
     - rand 2d topology
 2. Pushsum algorithm

@@ -1,4 +1,7 @@
 defmodule Gossip.Node do
+  @moduledoc """
+  Depracated. Will be removed in future release
+  """
   use GenServer
 
   @counter_limit 10

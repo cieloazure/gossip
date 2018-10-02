@@ -1,4 +1,7 @@
 defmodule Gossip.Supervisor do
+  @moduledoc """
+    A supervisor of the gossip algorithm which has functios to start nodes, set up their topology and initiate the algorithm
+  """
   use DynamicSupervisor
   require Logger
 
@@ -11,11 +14,20 @@ defmodule Gossip.Supervisor do
   @gossip "gossip"
   @pushsum "pushsum"
 
+  # Client API
+  
+  @doc """
+    Starts a dynamic supervisor
+  """
   def start_link(arg) do
     Logger.info("starting link")
     DynamicSupervisor.start_link(__MODULE__, arg, name: Gossip.Supervisor)
   end
 
+  @doc """
+    Starts `num_nodes` instances of `Gossip.NodeV2` for `gossip algorithm and `Gossip.NodeV3` for `pushsum algorithm`
+    Has a monitor to pass it to the each of `num_nodes` children which will use the monitor id to report their convergence state
+  """
   def start_children(supervisor, num_nodes, monitor, topology \\ @full, algorithm \\ @gossip) do
     Logger.info("Starting children genserver....")
 
@@ -46,6 +58,9 @@ defmodule Gossip.Supervisor do
     {:ok, child_pids}
   end
 
+  @doc """
+    Initiates the algorithm by choosing a random child and sending it a message which is of a specific form as required for the child
+  """
   def initiate_algorithm(child_pids, algorithm \\ @gossip) do
     case algorithm do
       @gossip -> send_fact(child_pids, {:fact, 42, -1, nil})
@@ -54,7 +69,11 @@ defmodule Gossip.Supervisor do
     end
   end
 
-  # Callback
+  # Server Callbacks
+
+  @doc """
+    Callback for after starting the supervisor
+  """
   @impl true
   def init(_args) do
     Logger.info("Starting supervisor...")
@@ -62,6 +81,8 @@ defmodule Gossip.Supervisor do
   end
 
   # Private functions
+  # TODO: Implement each topology in its module
+  # Set up various topologies
   defp create_topology(topology, child_pids) do
     case String.downcase(topology) do
       @full -> create_full_network(child_pids)
@@ -74,11 +95,13 @@ defmodule Gossip.Supervisor do
     end
   end
 
+  # Sends a fact to random child
   defp send_fact(child_pids, {:fact, fact, fact_counter, pid}) do
     random_child_pid = Enum.random(child_pids)
     send(random_child_pid, {:fact, fact, fact_counter, pid})
   end
 
+  # Creates a full network topology
   defp create_full_network(child_pids) do
     Logger.info("creating full network...")
 
@@ -88,6 +111,7 @@ defmodule Gossip.Supervisor do
     end)
   end
 
+  # Creates a line network topology
   defp create_line_network(child_pids) do
     Logger.info("creating line network....")
 
@@ -98,6 +122,7 @@ defmodule Gossip.Supervisor do
     end)
   end
 
+  # Creates a 3d network topology
   defp create_3d_network(child_pids) do
     Logger.info("creating 3d network...")
     grid_slots = create_3d_grid_slots(length(child_pids))
@@ -114,6 +139,7 @@ defmodule Gossip.Supervisor do
     end
   end
 
+  # Creates random 2d network topology
   defp create_rand_2d_network(child_pids) do
     Logger.info("creating rand 2d network...")
     grid_slots = create_2d_grid_slots(length(child_pids))
@@ -134,6 +160,7 @@ defmodule Gossip.Supervisor do
     end
   end
 
+  # Creates a torrus network topology
   defp create_torrus_network(child_pids) do
     Logger.debug("creating torus network...")
     n = length(child_pids)
@@ -182,6 +209,7 @@ defmodule Gossip.Supervisor do
     end)
   end
 
+  # Creates imperfect 2d line network topology
   defp create_imperfect_line_2d_network(child_pids) do
     Logger.info("creating imperfect line 2d network...")
     create_line_network(child_pids)
@@ -193,21 +221,28 @@ defmodule Gossip.Supervisor do
   end
 
   # Helper methods for private functions
+
+  # Raises invalid topology error
   defp raise_invalid_topology_error(_child_pids) do
     Logger.info("raising invalid topology error.....")
     raise ArgumentError, "topology(argument 3) is invalid"
   end
 
+  # Raises invalid algorithm error
   defp raise_invalid_algorithm_error() do
     Logger.info("raising invalid algorithm error.....")
     raise ArgumentError, "algorithm(argument 4) is invalid"
   end
 
+  # Helper method to create 2d grid slots for rand 2d network
+  # For rand 2d network
   defp create_2d_grid_slots(num_nodes) do
     grid_values = get_grid_values(num_nodes)
     List.flatten(Enum.map(grid_values, fn x -> Enum.map(grid_values, fn y -> {x, y} end) end))
   end
 
+  # Helper method to get the floting grid values for rand 2d networkp
+  # For rand 2d network
   defp get_grid_values(num_nodes) do
     step =
       if num_nodes > 100 do
@@ -219,6 +254,9 @@ defmodule Gossip.Supervisor do
     generate_values(0, step)
   end
 
+  # Helper method to generate values from 0.0 to 1.0 for a given grid based on
+  # number of nodes
+  # For rand2d network
   defp generate_values(x, step, l \\ [])
 
   defp generate_values(x, _step, l) when x == 1 do
@@ -240,6 +278,8 @@ defmodule Gossip.Supervisor do
     generate_values(x, step, l)
   end
 
+  # Helper method to check whether two nodes are neighbours
+  # For rand2d network
   defp grid_neighbour?(x1, y1, x2, y2) do
     {a, b} =
       cond do
@@ -267,6 +307,8 @@ defmodule Gossip.Supervisor do
     end
   end
 
+  # Helper method to create a grid slots based on a cuboid shape
+  # For 3d network
   defp create_3d_grid_slots(num_nodes) do
     # Considering a cuboid grid 
     a = round(:math.pow(num_nodes, 1 / 3))
@@ -289,6 +331,8 @@ defmodule Gossip.Supervisor do
     )
   end
 
+  # Helper method to check whether two nodes in 3d are neighbours
+  # For a 3d network
   defp grid_3d_neighbour?(x1, y1, z1, x2, y2, z2) do
     {a, b} =
       cond do
@@ -316,11 +360,15 @@ defmodule Gossip.Supervisor do
     end
   end
 
+  # Helper method to set dimensions of torus topology
+  # For torus network
   defp set_torus_dimensions(n) do
     s = trunc(:math.sqrt(n))
     find_factors(n, s)
   end
 
+  # Helper methods to find factors of torus topology
+  # For torus network
   defp find_factors(n, s) do
     cond do
       rem(n, s) == 0 -> {s, trunc(n / s)}
